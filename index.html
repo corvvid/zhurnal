@@ -1,0 +1,3104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f6f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1820" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Журнал">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Полевой журнал обследования</title>
+<style>
+:root{
+  --paper:#f4f6f5; --sheet:#ffffff; --sheet-2:#e9eef0; --rule:#cdd5da; --ink:#14202a; --ink-2:#56636d;
+  --axis:#1d4f7a; --axis-soft:#dbe7f1; --mark:#c8202f; --mark-ink:#ffffff; --mark-soft:#f8dfe1;
+  --ok:#2c7a4b; --ok-soft:#dbeee2; --warn:#975800; --warn-soft:#f6e7c8;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --tabs-h:62px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1820; --sheet:#15222c; --sheet-2:#1c2c38; --rule:#2a3c4a; --ink:#e2e9ee; --ink-2:#93a3af;
+    --axis:#86bce8; --axis-soft:#1b3347; --mark:#ff5c63; --mark-ink:#230507; --mark-soft:#3d1a1e;
+    --ok:#6fd09a; --ok-soft:#173326; --warn:#f2b552; --warn-soft:#38290f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+    --paper:#0e1820; --sheet:#15222c; --sheet-2:#1c2c38; --rule:#2a3c4a; --ink:#e2e9ee; --ink-2:#93a3af;
+    --axis:#86bce8; --axis-soft:#1b3347; --mark:#ff5c63; --mark-ink:#230507; --mark-soft:#3d1a1e;
+    --ok:#6fd09a; --ok-soft:#173326; --warn:#f2b552; --warn-soft:#38290f;
+    color-scheme:dark;
+  }
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.4 var(--sans);font-variant-numeric:tabular-nums;
+  padding-bottom:calc(var(--tabs-h) + 96px + env(safe-area-inset-bottom,0px));-webkit-tap-highlight-color:transparent}
+body.noscroll{overflow:hidden}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--axis);outline-offset:2px}
+
+/* шапка */
+.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;background:var(--paper);border-bottom:1px solid var(--rule)}
+.obj-btn{display:flex;align-items:center;gap:6px;min-width:0;flex:1;background:none;border:0;padding:6px 0;text-align:left;cursor:pointer}
+.obj-name{font-size:19px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.obj-btn svg{flex:none;color:var(--ink-2)}
+.top-count{flex:none;font-size:14px;color:var(--ink-2)}
+
+main{max-width:760px;margin:0 auto;padding:12px 16px}
+
+/* нижние вкладки */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;background:var(--sheet);border-top:1px solid var(--rule);
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs button{flex:1;height:var(--tabs-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  background:none;border:0;color:var(--ink-2);font-size:12.5px;cursor:pointer}
+.tabs button[aria-current="page"]{color:var(--ink);font-weight:600}
+.tabs button[aria-current="page"] svg{color:var(--mark)}
+
+.fab{position:fixed;right:16px;bottom:calc(var(--tabs-h) + env(safe-area-inset-bottom,0px) + 16px);z-index:15;
+  height:56px;padding:0 22px 0 18px;border-radius:28px;border:0;background:var(--mark);color:var(--mark-ink);
+  font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;cursor:pointer;
+  box-shadow:0 6px 18px -6px color-mix(in srgb,var(--mark) 70%,transparent)}
+.fab[hidden]{display:none}
+
+/* поиск и фильтры */
+.search{width:100%;font-size:16px;padding:11px 14px;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink)}
+.filters{display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px;margin:0 -16px;padding-left:16px;padding-right:16px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--rule);background:var(--sheet);border-radius:18px;padding:7px 13px;font-size:14.5px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.summary{font-size:14px;color:var(--ink-2);margin:8px 0}
+
+/* ведомость: строки дефектов */
+.ledger{background:var(--sheet);border:1px solid var(--rule);border-radius:12px;overflow:hidden}
+.row{display:grid;grid-template-columns:48px 1fr;gap:0 10px;padding:12px 14px 12px 8px;border-top:1px solid var(--rule);cursor:pointer}
+.row:first-child{border-top:0}
+.row:active{background:var(--sheet-2)}
+.row-no{justify-self:center;align-self:start;min-width:34px;height:28px;padding:0 6px;border-radius:14px;border:1.5px solid var(--mark);
+  color:var(--mark);font-weight:700;font-size:14.5px;display:flex;align-items:center;justify-content:center}
+.row.sev-критический .row-no{background:var(--mark);color:var(--mark-ink)}
+.row-loc{font-weight:700;font-style:italic;color:var(--axis)}
+.row-type{margin-top:2px}
+.row-param{margin-top:2px;font-weight:600}
+.row-meta{margin-top:4px;font-size:14px;color:var(--ink-2)}
+.tag{display:inline-block;font-style:normal;font-size:12.5px;font-weight:600;padding:2px 8px;border-radius:6px;vertical-align:1px;margin-left:6px}
+.tag.critical{background:var(--mark-soft);color:var(--mark)}
+.tag.major{background:var(--warn-soft);color:var(--warn)}
+.tag.minor{background:var(--sheet-2);color:var(--ink-2)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+
+/* маяки */
+.beacon{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 14px;border-top:1px solid var(--rule);cursor:pointer;align-items:center}
+.beacon:first-child{border-top:0}
+.beacon:active{background:var(--sheet-2)}
+.b-title{font-weight:700}
+.b-title small{font-weight:400;color:var(--ink-2);font-size:14px;margin-left:6px}
+.b-line{font-size:14px;color:var(--ink-2);grid-column:1}
+.spark{grid-row:1 / span 3;grid-column:2}
+
+.empty{text-align:center;padding:48px 16px;color:var(--ink-2)}
+.empty h2{color:var(--ink);font-size:19px;margin:0 0 6px}
+.empty p{margin:0 0 18px}
+
+/* панели раздела «Объект» */
+.panel{background:var(--sheet);border:1px solid var(--rule);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel h3{margin:0 0 10px;font-size:17px}
+.panel p{margin:6px 0}
+.small{font-size:14px}
+.muted{color:var(--ink-2)}
+.obj-list{display:flex;flex-direction:column;gap:6px}
+.obj-item{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;width:100%;padding:11px 12px;border:1px solid var(--rule);
+  border-radius:10px;background:var(--sheet);cursor:pointer}
+.obj-item.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.obj-item span{color:var(--ink-2);font-size:14px;flex:none}
+
+/* формы */
+.field{margin-bottom:14px}
+.field>label,.lbl{display:block;font-size:14px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+.inp{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink)}
+textarea.inp{min-height:76px;resize:vertical}
+.hint{font-size:13.5px;color:var(--ink-2);margin-top:5px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.grid3 .field,.grid2 .field{margin-bottom:0}
+.group{border-top:1px solid var(--rule);padding-top:14px;margin-top:6px}
+.group-title{font-size:15px;font-weight:700;margin:0 0 12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips .chip{padding:8px 12px}
+.seg{display:flex;border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.seg button{flex:1;border:0;border-left:1px solid var(--rule);background:var(--sheet);padding:10px 4px;font-size:14px;cursor:pointer}
+.seg button:first-child{border-left:0}
+.seg button.on{background:var(--ink);color:var(--paper);font-weight:600}
+.seg button.on.critical{background:var(--mark);color:var(--mark-ink)}
+.typebtn{width:100%;text-align:left;font-size:16px;padding:12px;border:1px dashed var(--rule);border-radius:10px;background:var(--sheet-2);cursor:pointer}
+.typebtn.set{border-style:solid;background:var(--sheet);font-weight:600}
+.typebtn .code{color:var(--ink-2);font-weight:400;margin-right:8px}
+.photo-row{display:flex;gap:8px}
+.photo-row .inp{flex:1}
+
+/* выбор осей: марки осей как на чертеже */
+.ax-prev{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:var(--axis-soft);margin-bottom:10px;min-height:46px}
+.ax-prev b{font-style:italic;color:var(--axis);font-size:18px}
+.ax-prev .none{color:var(--ink-2);font-size:15px}
+.ax-row-lbl{font-size:13.5px;color:var(--ink-2);margin:8px 0 6px}
+.ax-grid{display:flex;flex-wrap:wrap;gap:7px}
+.ax{width:42px;height:42px;border-radius:50%;border:1.5px solid var(--axis);background:var(--sheet);color:var(--axis);
+  font-style:italic;font-weight:650;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.ax.long{font-size:12.5px}
+.ax.mid{background:var(--axis-soft)}
+.ax.on{background:var(--axis);color:var(--sheet)}
+
+/* кнопки */
+.btn{font:inherit;font-size:16px;font-weight:600;padding:12px 16px;border-radius:10px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn.mark{background:var(--mark);color:var(--mark-ink);border-color:var(--mark)}
+.btn.danger{color:var(--mark);border-color:var(--mark-soft)}
+.btn.small{font-size:14.5px;padding:9px 12px}
+.btn-col{display:flex;flex-direction:column;gap:8px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.link{background:none;border:0;color:var(--axis);font-size:14.5px;font-weight:600;cursor:pointer;padding:4px}
+
+/* листы (формы поверх) */
+.sheet{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;background:var(--paper);animation:up .18s ease-out}
+@keyframes up{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.sheet-head{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 8px 8px;border-bottom:1px solid var(--rule);background:var(--paper)}
+.sheet-head h2{flex:1;margin:0;font-size:18px;text-align:center}
+.icon-btn{width:44px;height:44px;border:0;background:none;font-size:20px;cursor:pointer;border-radius:10px;color:var(--ink-2)}
+.sheet-spacer{width:44px}
+.sheet-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px}
+.sheet-body>*{max-width:720px;margin-left:auto;margin-right:auto}
+.sheet-foot{display:flex;gap:8px;padding:10px 16px calc(env(safe-area-inset-bottom,0px) + 10px);border-top:1px solid var(--rule);background:var(--sheet)}
+.sheet-foot .btn{flex:1}
+.sheet-foot .btn.danger{flex:0 0 auto}
+
+/* список типов */
+.tp-grp{font-size:13.5px;font-weight:700;color:var(--ink-2);margin:16px 0 6px}
+.tp-item{display:flex;gap:10px;width:100%;text-align:left;padding:12px;border:0;border-top:1px solid var(--rule);background:var(--sheet);cursor:pointer;font-size:16px}
+.tp-list .tp-box{border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.tp-list .tp-box .tp-item:first-child{border-top:0}
+.tp-item .code{color:var(--ink-2);min-width:44px;flex:none}
+.tp-custom{margin-top:14px;width:100%}
+
+/* маяк: подробно */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 14px;font-size:15px}
+.kv dt{color:var(--ink-2)}
+.kv dd{margin:0}
+.chart{width:100%;height:auto;display:block;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;margin-bottom:14px}
+.chart .grid line{stroke:var(--rule);stroke-width:1}
+.chart text{fill:var(--ink-2);font-size:11px;font-family:var(--sans)}
+.chart .line{fill:none;stroke:var(--mark);stroke-width:2}
+.chart .pt{fill:var(--sheet);stroke:var(--mark);stroke-width:2}
+.chart .pt.break{fill:var(--mark)}
+.spark .line{fill:none;stroke:var(--mark);stroke-width:1.6}
+.spark .pt{fill:var(--mark)}
+table.readings{width:100%;border-collapse:collapse;background:var(--sheet);border:1px solid var(--rule);border-radius:10px;overflow:hidden;font-size:15px}
+table.readings th,table.readings td{padding:10px;border-top:1px solid var(--rule);text-align:left}
+table.readings th{font-size:13.5px;color:var(--ink-2);font-weight:600;border-top:0;background:var(--sheet-2)}
+table.readings tbody tr{cursor:pointer}
+table.readings td.n{text-align:right}
+
+.toast{position:fixed;left:50%;bottom:calc(var(--tabs-h) + env(safe-area-inset-bottom,0px) + 86px);transform:translateX(-50%) translateY(10px);
+  background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:15px;opacity:0;pointer-events:none;
+  transition:opacity .18s,transform .18s;z-index:100;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.toast.err{background:var(--mark);color:var(--mark-ink)}
+body.noscroll .toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px);transform:translateX(-50%) translateY(-10px)}
+body.noscroll .toast.show{transform:translateX(-50%)}
+
+
+/* рабочий экран чертежа */
+.plan-hint[hidden]{display:none}
+.ink-bar{display:flex;flex-wrap:wrap;gap:6px 10px;width:100%;align-items:center;justify-content:space-between}
+.ink-tools,.ink-acts{display:flex;gap:2px;align-items:center}
+.ink-acts{flex:1 1 auto;justify-content:flex-end}
+.tb{position:relative;width:42px;height:42px;flex:none;border-radius:10px;border:0;background:none;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.tb.on{background:var(--ink);color:var(--paper)}
+.tb:disabled{opacity:.3;cursor:default}
+.tb .dot{position:absolute;left:12px;right:12px;bottom:4px;height:3px;border-radius:2px}
+.swatch{width:26px;height:26px;border-radius:50%;box-shadow:0 0 0 2px var(--sheet),0 0 0 3.5px var(--rule)}
+.ink-acts .btn.mark,.ink-acts .btn.axis{flex:0 1 150px;margin-left:6px;padding:10px 12px;white-space:nowrap;font-size:15px}
+.ink-acts .btn.axis+.btn.mark{margin-left:4px}
+.btn.axis{background:var(--sheet);color:var(--axis);border-color:var(--axis)}
+select.inp{appearance:auto}
+.pop{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:5;width:min(380px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;
+  background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:14px;padding:12px 14px;box-shadow:0 14px 34px -12px rgba(0,0,0,.45)}
+.pop-title{font-weight:700;font-size:15px;margin-bottom:10px}
+.pop-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pop-row+.pop-row{margin-top:12px}
+.pop .sw{width:34px;height:34px;border-radius:50%;border:0;padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);position:relative;display:inline-block}
+.pop .sw.on{box-shadow:0 0 0 2px var(--sheet),0 0 0 4px var(--ink)}
+.pop .sw-any{background:conic-gradient(#e53935,#fdd835,#43a047,#1e88e5,#8e24aa,#e53935)}
+.pop .sw-any input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.pop .wd{width:48px;height:40px;border-radius:10px;border:1px solid var(--rule);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#14202a}
+.pop .wd.on{border-color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.pop .wd i{display:block;border-radius:99px}
+.menu-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 2px;border:0;border-top:1px solid var(--rule);background:none;text-align:left;font-size:15.5px;line-height:1.3;cursor:pointer;color:var(--ink)}
+.menu-item:first-child,.pop-title+.menu-item{border-top:0}
+.menu-item input{width:20px;height:20px;accent-color:var(--mark);flex:none}
+.menu-item.danger{color:var(--mark)}
+.menu-item:disabled{opacity:.4;cursor:default}
+/* список чертежей */
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.dcard{background:var(--sheet);border:1px solid var(--rule);border-radius:12px;overflow:hidden}
+.dcard-open{display:block;width:100%;padding:0;border:0;border-bottom:1px solid var(--rule);background:#fff;cursor:pointer}
+.dcard-open img{display:block;width:100%;aspect-ratio:1.414/1;object-fit:contain;background:#fff}
+.dcard-meta{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:8px 4px 8px 12px}
+.dcard-name{font-weight:600;font-size:15px;overflow-wrap:anywhere}
+.dcard-sub{font-size:13px;color:var(--ink-2);margin-top:2px}
+.empty .btn{margin-top:4px}
+/* отметки: панель правки, направления выноски, свой вариант */
+.mk-bar{display:flex;flex-wrap:wrap;gap:8px;width:100%;align-items:center}
+.mk-bar .btn{flex:1 1 auto;padding:11px 12px}
+.mk-bar .btn:disabled{opacity:.4}
+.dir-btns{display:flex;gap:4px;flex:0 0 auto}
+.dir-btns .tb{border:1px solid var(--rule);font-size:20px;line-height:1;width:40px;height:40px}
+.combo{display:flex;gap:8px;align-items:stretch}
+.combo .inp{flex:1;min-width:0}
+.sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sugg:empty{display:none}
+.chip-add{border-style:dashed;color:var(--axis)}
+/* диалоги */
+.dlg{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.38);display:flex;align-items:center;justify-content:center;padding:20px}
+.dlg-box{background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 16px 40px -14px rgba(0,0,0,.45)}
+.dlg-msg{margin:0 0 16px;font-size:16px;line-height:1.45;white-space:pre-line;overflow-wrap:anywhere}
+.dlg-box .inp{margin-bottom:16px}
+.dlg-btns{display:flex;gap:8px}
+.dlg-btns .btn{flex:1}
+/* занятость */
+.busy{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.18)}
+.busy[hidden]{display:none}
+.busy-box{background:var(--sheet);border:1px solid var(--rule);border-radius:12px;padding:16px 20px;display:flex;gap:12px;align-items:center;max-width:80%;box-shadow:0 12px 30px -12px rgba(0,0,0,.35)}
+.spin{width:20px;height:20px;border-radius:50%;border:3px solid var(--rule);border-top-color:var(--mark);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* фото */
+.pics{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.pic{position:relative;aspect-ratio:1/1;min-height:84px;border:1px solid var(--rule);border-radius:8px;overflow:hidden;padding:0;background:var(--sheet-2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pic img{width:100%;height:100%;object-fit:cover;display:block}
+.pic.add{border-style:dashed;color:var(--ink-2);font-weight:600;font-size:14.5px;text-align:center;line-height:1.2}
+.photo-big{width:100%;height:auto;border-radius:10px;display:block;background:var(--sheet-2)}
+/* чертёж */
+.plan-prev canvas{width:100%;height:auto;display:block;border:1px solid var(--rule);border-radius:10px;background:#fff}
+.plan-sheet .sheet-body{padding:0;overflow:hidden;position:relative}
+.plan-sheet .sheet-body>*{max-width:none}
+.plan-wrap{position:absolute;inset:0;background:var(--sheet-2);overflow:hidden}
+.plan-cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:crosshair}
+.plan-hint{position:absolute;left:12px;right:12px;top:10px;font-size:13.5px;line-height:1.35;background:var(--sheet);border:1px solid var(--rule);border-radius:8px;padding:7px 10px;color:var(--ink-2);pointer-events:none;text-align:center}
+.plan-foot{display:flex;flex-wrap:wrap;gap:8px;width:100%;align-items:stretch}
+.plan-foot .seg{flex:1 1 100%}
+.plan-foot .seg button{padding:8px 4px}
+.plan-foot .btn{flex:1}
+.plan-foot .btn:disabled{opacity:.45}
+.dr-list .dr{display:grid;grid-template-columns:84px 1fr;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--rule)}
+.dr-list .dr:first-child{border-top:0;padding-top:0}
+.dr img{width:84px;height:60px;object-fit:contain;background:#fff;border:1px solid var(--rule);border-radius:6px;display:block}
+.dr-name{font-weight:600;margin-bottom:6px;overflow-wrap:anywhere}
+.filters-lbl{flex:none;align-self:center;font-size:14px;color:var(--ink-2);margin-right:2px}
+.check{display:flex;gap:12px;align-items:center;padding:13px 0;border-top:1px solid var(--rule);font-size:16px;cursor:pointer}
+.check:first-child{border-top:0}
+.check input{width:22px;height:22px;accent-color:var(--mark);flex:none}
+@media (min-width:600px){ .grid3{grid-template-columns:repeat(5,1fr)} }
+</style>
+</head>
+<body>
+<header class="top" id="top"></header>
+<main id="view"></main>
+<button type="button" class="fab" id="fab" hidden></button>
+<nav class="tabs" id="tabs" aria-label="Разделы">
+  <button type="button" data-tab="drawings">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 10h18M9 4v16" opacity=".45"/><path d="M13 14l2.5 2.5L19 12"/></svg>
+    <span>Чертежи</span></button>
+  <button type="button" data-tab="defects">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z" opacity=".35"/><path d="M9 4l2 5-3 4 4 3-1 4"/></svg>
+    <span>Дефекты</span></button>
+  <button type="button" data-tab="beacons">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18" opacity=".35"/><rect x="7" y="8" width="10" height="8" rx="1.5"/><path d="M12 8v8"/></svg>
+    <span>Маяки</span></button>
+  <button type="button" data-tab="object">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V6l8-3 8 3v14"/><path d="M9 20v-5h6v5M8 9h2M14 9h2M8 12h2M14 12h2"/></svg>
+    <span>Объект</span></button>
+</nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="busy" id="busy" hidden><div class="busy-box" role="status" aria-live="polite"><span class="spin" aria-hidden="true"></span><span id="busyText"></span></div></div>
+<noscript><p style="padding:16px">Для работы журнала нужен включённый JavaScript.</p></noscript>
+
+<script>
+'use strict';
+/* ===================== Константы и справочники по умолчанию ===================== */
+const KEY = 'polevoy-zhurnal-v1';
+// Буквы для координационных осей: без Ё, З, Й, О, Х, Ц, Ч, Щ, Ъ, Ы, Ь
+const LET = 'АБВГДЕЖИКЛМНПРСТУФШЭЮЯ'.split('');
+const LAT2CYR = {A:'А',B:'В',C:'С',E:'Е',H:'Н',K:'К',M:'М',P:'Р',T:'Т',X:'Х',Y:'У'};
+const SEV = [['','—'],['малозначительный','Малозн.'],['значительный','Значит.'],['критический','Критич.']];
+const SEV_CLASS = {'малозначительный':'minor','значительный':'major','критический':'critical'};
+const KINDS = ['Щелемер','Гипсовый','Стеклянный','Цементный','Индикатор','Прочее'];
+const BRITTLE = ['Гипсовый','Стеклянный','Цементный'];
+const BUILD = {pwa: true, fflate: 'fflate.min.js', pdf: 'pdf.min.js', pdfWorker: 'pdf.worker.min.js', pdflib: 'pdf-lib.min.js'};
+const FRAMED = (() => { try { return window.top !== window.self; } catch(e) { return true; } })();
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const COL = {mark: '#c8202f', markFill: 'rgba(200,32,47,0.16)', axis: '#1d4f7a', axisFill: 'rgba(29,79,122,0.16)'};
+const DEFAULT_CONSTR = ['Фундаменты','Стены','Колонны','Балки, ригели','Плиты перекрытий','Покрытие, кровля','Лестницы','Перегородки','Прочее'];
+const DEFAULT_CATALOG = [
+  ['Ж-01','Трещины нормальные (поперечные)','Бетон и железобетон'],
+  ['Ж-02','Трещины наклонные','Бетон и железобетон'],
+  ['Ж-03','Трещины продольные вдоль арматуры','Бетон и железобетон'],
+  ['Ж-04','Усадочные (сетчатые) трещины','Бетон и железобетон'],
+  ['Ж-05','Сколы бетона','Бетон и железобетон'],
+  ['Ж-06','Отслоение защитного слоя, оголение арматуры','Бетон и железобетон'],
+  ['Ж-07','Коррозия арматуры','Бетон и железобетон'],
+  ['Ж-08','Недостаточный защитный слой бетона','Бетон и железобетон'],
+  ['Ж-09','Раковины, каверны, пустоты','Бетон и железобетон'],
+  ['Ж-10','Выщелачивание, высолы','Бетон и железобетон'],
+  ['Ж-11','Шелушение, разрушение поверхностного слоя бетона','Бетон и железобетон'],
+  ['Ж-12','Прогиб элемента','Бетон и железобетон'],
+  ['К-01','Трещины в кладке','Каменная кладка'],
+  ['К-02','Трещины по растворным швам','Каменная кладка'],
+  ['К-03','Выветривание раствора швов','Каменная кладка'],
+  ['К-04','Разрушение (размораживание) кирпича','Каменная кладка'],
+  ['К-05','Выпадение, отсутствие кирпичей','Каменная кладка'],
+  ['К-06','Отклонение от вертикали, выпучивание','Каменная кладка'],
+  ['М-01','Коррозия металла','Металлические конструкции'],
+  ['М-02','Разрушение антикоррозионного покрытия','Металлические конструкции'],
+  ['М-03','Погибы, местные деформации','Металлические конструкции'],
+  ['М-04','Дефекты сварных швов','Металлические конструкции'],
+  ['М-05','Ослабление, отсутствие болтов','Металлические конструкции'],
+  ['М-06','Отклонение от проектного положения','Металлические конструкции'],
+  ['О-01','Следы замачивания, протечки','Общие'],
+  ['О-02','Биоповреждения (плесень, грибок)','Общие'],
+  ['О-03','Повреждение гидроизоляции','Общие'],
+  ['О-04','Повреждение отделочного слоя','Общие'],
+  ['О-05','Посторонние отверстия, проёмы','Общие'],
+  ['О-06','Прочее','Общие']
+];
+
+/* ===================== Утилиты ===================== */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clone = x => JSON.parse(JSON.stringify(x));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const STARTED = Date.now();
+function h(html){ const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; }
+function today(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function fmtDate(iso){ if(!iso) return ''; const p = String(iso).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso; }
+function num(s){ if(s === null || s === undefined || s === '') return null; const v = parseFloat(String(s).replace(',', '.').replace(/\s/g, '')); return isNaN(v) ? null : v; }
+function fmtNum(v, signed){ if(v === null || v === undefined) return ''; const s = Math.abs(v).toLocaleString('ru-RU', {maximumFractionDigits: 2}); return (v < 0 ? '−' : (signed && v > 0 ? '+' : '')) + s; }
+function fmtMB(b){ return (b / 1048576).toLocaleString('ru-RU', {maximumFractionDigits: b < 10 * 1048576 ? 1 : 0}) + ' МБ'; }
+function plural(n, f){ const a = Math.abs(n) % 100, b = a % 10; return n + ' ' + (a > 10 && a < 20 ? f[2] : b > 1 && b < 5 ? f[1] : b === 1 ? f[0] : f[2]); }
+function daysBetween(a, b){ return Math.round((Date.parse(b) - Date.parse(a)) / 864e5); }
+const round5 = v => Math.round(v * 1e5) / 1e5;
+
+let toastTimer;
+function toast(msg, err){
+  const t = $('#toast'); t.textContent = msg; t.classList.toggle('err', !!err); t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), err ? 4500 : 1900);
+}
+function busy(msg){
+  const b = $('#busy');
+  if(msg === null || msg === undefined || msg === false){ b.hidden = true; return; }
+  $('#busyText').textContent = msg; b.hidden = false;
+}
+function dialog(o){
+  return new Promise(res => {
+    const ov = h(`<div class="dlg" role="alertdialog" aria-modal="true"><div class="dlg-box"><p class="dlg-msg"></p>${o.input ? '<input class="inp" autocomplete="off">' : ''}
+      <div class="dlg-btns">${o.cancel === null ? '' : `<button type="button" class="btn" data-no>${esc(o.cancel || 'Отмена')}</button>`}<button type="button" class="btn ${o.danger ? 'mark' : 'primary'}" data-yes>${esc(o.ok || 'Да')}</button></div></div></div>`);
+    $('.dlg-msg', ov).textContent = o.message;
+    const inp = $('input', ov); if(inp) inp.value = o.value || '';
+    const done = v => { ov.remove(); document.removeEventListener('keydown', key, true); res(v); };
+    const no = () => done(o.input ? null : false), yes = () => done(o.input ? inp.value : true);
+    const key = e => {
+      if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); no(); }
+      else if(e.key === 'Enter' && inp && document.activeElement === inp){ e.preventDefault(); yes(); }
+    };
+    const nb = $('[data-no]', ov); if(nb) nb.onclick = no;
+    $('[data-yes]', ov).onclick = yes;
+    document.addEventListener('keydown', key, true); document.body.append(ov);
+    setTimeout(() => (inp || $('[data-yes]', ov)).focus(), 30);
+  });
+}
+const ask = (message, o = {}) => dialog({message, ...o});
+const askText = (message, value) => dialog({message, input: true, value, ok: 'Загрузить'});
+const info = message => dialog({message, ok: 'Понятно', cancel: null});
+const loadedScripts = {};
+function loadScript(src){
+  if(loadedScripts[src]) return loadedScripts[src];
+  loadedScripts[src] = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src;
+    s.onload = () => res();
+    s.onerror = () => { delete loadedScripts[src]; rej(new Error('не загрузился файл ' + src + ' — проверьте, что все файлы журнала загружены рядом с index.html')); };
+    document.head.append(s);
+  });
+  return loadedScripts[src];
+}
+async function ensureFflate(){ if(!window.fflate) await loadScript(BUILD.fflate); }
+function pickFiles(accept, multiple, cb){
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = accept; inp.multiple = !!multiple; inp.hidden = true;
+  inp.onchange = () => { const files = [...inp.files]; inp.remove(); if(files.length) cb(files); };
+  document.body.append(inp); inp.click();
+}
+
+/* ===================== Хранилище: записи (localStorage) ===================== */
+let db = null;
+function freshDb(){
+  return { version: 2, currentId: null, objects: [],
+    catalog: DEFAULT_CATALOG.map(([code, name, group]) => ({code, name, group})),
+    constructions: DEFAULT_CONSTR.slice() };
+}
+function normalizeObject(o){
+  o.name = o.name || 'Без названия';
+  o.address = o.address || ''; o.contract = o.contract || '';
+  o.axesN = o.axesN ?? '1-10'; o.axesL = o.axesL ?? 'А-Е';
+  o.threshold = o.threshold ?? '0,1';
+  o.lastPhoto = o.lastPhoto || '';
+  o.defects = Array.isArray(o.defects) ? o.defects : [];
+  o.beacons = Array.isArray(o.beacons) ? o.beacons : [];
+  o.drawings = Array.isArray(o.drawings) ? o.drawings : [];
+  for(const d of o.defects){ d.axes = d.axes || {n: [], l: []}; d.pics = Array.isArray(d.pics) ? d.pics : []; d.plan = d.plan || null; }
+  for(const b of o.beacons){ b.axes = b.axes || {n: [], l: []}; b.readings = Array.isArray(b.readings) ? b.readings : []; b.plan = b.plan || null; }
+  return o;
+}
+function load(){
+  try { const s = localStorage.getItem(KEY); if(s) db = JSON.parse(s); } catch(e) { db = null; }
+  if(!db || !Array.isArray(db.objects)) db = freshDb();
+  if(!Array.isArray(db.catalog)) db.catalog = freshDb().catalog;
+  if(!Array.isArray(db.constructions)) db.constructions = DEFAULT_CONSTR.slice();
+  db.objects.forEach(normalizeObject);
+  if(!db.objects.find(o => o.id === db.currentId)) db.currentId = db.objects[0]?.id || null;
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(db)); document.dispatchEvent(new Event('zh-saved')); return true; }
+  catch(e) { toast('Данные не сохранились: ' + e.message, true); return false; }
+}
+function cur(){ return db.objects.find(o => o.id === db.currentId) || null; }
+
+/* ===================== Хранилище: фото и чертежи (IndexedDB) ===================== */
+const MEDIA = (() => {
+  let dbp = null;
+  function open(){
+    if(dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      const r = indexedDB.open('polevoy-zhurnal-media', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('m');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => { dbp = null; rej(r.error || new Error('хранилище недоступно')); };
+    });
+    return dbp;
+  }
+  async function tx(mode, fn){
+    const d = await open();
+    return new Promise((res, rej) => {
+      const t = d.transaction('m', mode); let out;
+      const r = fn(t.objectStore('m')); if(r) r.onsuccess = () => { out = r.result; };
+      t.oncomplete = () => res(out);
+      t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('запись прервана — возможно, не хватает места'));
+    });
+  }
+  return {
+    async put(id, blob){ const buf = await blob.arrayBuffer(); return tx('readwrite', st => st.put({type: blob.type || 'image/jpeg', buf}, id)); },
+    async get(id){ const v = await tx('readonly', st => st.get(id)); return v ? new Blob([v.buf], {type: v.type}) : null; },
+    async del(id){ dropURL(id); return tx('readwrite', st => st.delete(id)); },
+    keys(){ return tx('readonly', st => st.getAllKeys()); }
+  };
+})();
+const urlCache = new Map();
+async function mediaURL(id){
+  if(urlCache.has(id)) return urlCache.get(id);
+  const b = await MEDIA.get(id); if(!b) return null;
+  const u = await objURL(b); urlCache.set(id, u); return u;
+}
+function dropURL(id){ const u = urlCache.get(id); if(u){ URL.revokeObjectURL(u); urlCache.delete(id); } }
+function mediaIds(objs){
+  const s = new Set();
+  for(const o of objs){
+    for(const d of o.drawings || []){ s.add(d.id); if(d.thumb) s.add(d.thumb); if(d.ink) s.add(d.ink); if(d.src) s.add(d.src); }
+    for(const d of o.defects || []) for(const p of d.pics || []) s.add(p.id);
+  }
+  return s;
+}
+async function gcMedia(){
+  try {
+    const keep = mediaIds(db.objects);
+    for(const k of await MEDIA.keys()){
+      const t = parseInt(String(k).slice(0, 8), 36);
+      if(!keep.has(k) && !(t > STARTED - 60000)) await MEDIA.del(k);
+    }
+  } catch(e) {}
+}
+
+/* ===================== Изображения ===================== */
+let blobImgOK = null;
+function probeBlobImages(){
+  if(blobImgOK) return blobImgOK;
+  blobImgOK = new Promise(res => {
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = 2;
+      c.toBlob(b => {
+        if(!b) return res(false);
+        const u = URL.createObjectURL(b), im = new Image(), t = setTimeout(() => res(false), 3000);
+        im.onload = () => { clearTimeout(t); URL.revokeObjectURL(u); res(true); };
+        im.onerror = () => { clearTimeout(t); URL.revokeObjectURL(u); res(false); };
+        im.src = u;
+      }, 'image/png');
+    } catch(e) { res(false); }
+  });
+  return blobImgOK;
+}
+function blobToDataURL(b){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); }); }
+async function objURL(blob){ return (await probeBlobImages()) ? URL.createObjectURL(blob) : blobToDataURL(blob); }
+async function loadImage(blob){
+  const u = await objURL(blob);
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res({img: im, url: u, w: im.naturalWidth, h: im.naturalHeight});
+    im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('не удалось открыть изображение')); };
+    im.src = u;
+  });
+}
+function canvasBlob(c, type, q){ return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('не удалось сжать изображение')), type, q)); }
+async function resizeToJpeg(src, w, h, maxSide, quality, maxArea){
+  const k = Math.min(1, maxSide / Math.max(w, h), maxArea ? Math.sqrt(maxArea / (w * h)) : 1);
+  const cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cw, ch); x.imageSmoothingQuality = 'high';
+  x.drawImage(src, 0, 0, cw, ch);
+  const blob = await canvasBlob(c, 'image/jpeg', quality);
+  c.width = c.height = 0;
+  return {blob, w: cw, h: ch};
+}
+async function savePhoto(file){
+  const im = await loadImage(file);
+  try {
+    const r = await resizeToJpeg(im.img, im.w, im.h, 1600, 0.82);
+    const id = uid(); await MEDIA.put(id, r.blob);
+    return {id, w: r.w, h: r.h};
+  } finally { URL.revokeObjectURL(im.url); }
+}
+const imgCache = new Map();
+function drawingImage(id){
+  if(!imgCache.has(id)){
+    const p = MEDIA.get(id).then(b => { if(!b) throw new Error('файл чертежа не найден'); return loadImage(b); });
+    imgCache.set(id, p); p.catch(() => imgCache.delete(id));
+    while(imgCache.size > 3){
+      const k = imgCache.keys().next().value; const old = imgCache.get(k); imgCache.delete(k);
+      old.then(r => URL.revokeObjectURL(r.url)).catch(() => {});
+    }
+  }
+  return imgCache.get(id);
+}
+
+/* ===================== Чертежи: загрузка ===================== */
+const A_MM = [[841, 1189], [594, 841], [420, 594], [297, 420], [210, 297]]; // А0…А4, короткая и длинная стороны
+function paperName(wmm, hmm){
+  const S = Math.min(wmm, hmm), L = Math.max(wmm, hmm), near = (a, b) => Math.abs(a - b) <= Math.max(3, b * 0.015);
+  for(let k = 0; k < 5; k++){ const [sh, lo] = A_MM[k]; if(near(S, sh) && near(L, lo)) return `А${k}`; }
+  for(let k = 1; k < 5; k++){ const [sh, lo] = A_MM[k]; for(let n = 2; n <= 9; n++){ const m = sh * n; if((near(S, lo) && near(L, m)) || (near(L, lo) && near(S, m))) return `А${k}×${n}`; } }
+  return '';
+}
+function pageMM(dr){
+  if(dr.pw && dr.ph) return [dr.pw * 25.4 / 72, dr.ph * 25.4 / 72];
+  const k = Math.max(0, Math.min(4, parseInt(String(dr.fmt || 'A3').slice(1), 10) || 3)), [sh, lo] = A_MM[k];
+  return dr.w >= dr.h ? [lo, sh] : [sh, lo];
+}
+function fmtLabel(dr){ const [w, hh] = pageMM(dr), n = paperName(w, hh); return (n ? n + ', ' : '') + `${Math.round(w)}×${Math.round(hh)} мм`; }
+function baseName(n){ return String(n || 'Чертёж').replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim() || 'Чертёж'; }
+function parsePages(str, n){
+  const out = new Set();
+  for(const t of String(str || '').replace(/\s*[-–—]\s*/g, '-').split(/[,;\s]+/).filter(Boolean)){
+    const m = t.match(/^(\d+)-(\d+)$/);
+    if(m){ let a = +m[1], b = +m[2]; if(a > b) [a, b] = [b, a]; for(let i = Math.max(1, a); i <= Math.min(n, b); i++) out.add(i); }
+    else if(/^\d+$/.test(t) && +t >= 1 && +t <= n) out.add(+t);
+  }
+  return [...out].sort((a, b) => a - b);
+}
+async function addDrawing(o, name, src, w, h, extra){
+  const big = await resizeToJpeg(src, w, h, 4200, 0.86, 12e6);
+  const th = await resizeToJpeg(src, w, h, 360, 0.75);
+  const id = uid(), thumb = uid();
+  await MEDIA.put(id, big.blob); await MEDIA.put(thumb, th.blob);
+  o.drawings.push({id, thumb, name, w: big.w, h: big.h, added: Date.now(), ...(extra || {})});
+  save();
+}
+async function importDrawingFiles(files){
+  const o = cur(); if(!o) return 0;
+  let added = 0;
+  try {
+    for(const file of files){
+      if(file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) added += await importPdf(o, file);
+      else {
+        busy('Загружаю чертёж…');
+        const im = await loadImage(file);
+        try { await addDrawing(o, baseName(file.name), im.img, im.w, im.h); added++; }
+        finally { URL.revokeObjectURL(im.url); }
+      }
+    }
+  } catch(e) { toast('Чертёж не загрузился: ' + e.message, true); }
+  busy(null); render();
+  if(added) toast(`Добавлено: ${plural(added, ['чертёж','чертежа','чертежей'])}`);
+  return added;
+}
+async function importPdf(o, file){
+  busy('Открываю PDF…');
+  try { await loadScript(BUILD.pdfWorker); await loadScript(BUILD.pdf); }
+  catch(e) { throw new Error('модуль чтения PDF не загрузился. Для загрузки PDF нужен интернет; изображения (JPG, PNG) загружаются и без него'); }
+  const pdf = await window.pdfjsLib.getDocument({data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false}).promise;
+  let pages = [1];
+  if(pdf.numPages > 1){
+    busy(null);
+    const ans = await askText(`В файле ${plural(pdf.numPages, ['лист','листа','листов'])}. Какие загрузить? Например: 1, 3-4`, pdf.numPages <= 4 ? `1-${pdf.numPages}` : '1');
+    if(ans === null){ pdf.destroy(); return 0; }
+    pages = parsePages(ans, pdf.numPages);
+    if(!pages.length){ pdf.destroy(); throw new Error('не указаны листы'); }
+  }
+  let n = 0;
+  const srcId = uid();
+  await MEDIA.put(srcId, new Blob([await file.arrayBuffer()], {type: 'application/pdf'}));
+  for(const p of pages){
+    busy(`Рисую лист ${p}${pages.length > 1 ? ` (${n + 1} из ${pages.length})` : ''}…`);
+    const page = await pdf.getPage(p);
+    const v1 = page.getViewport({scale: 1});
+    const k = Math.min(4200 / Math.max(v1.width, v1.height), Math.sqrt(12e6 / (v1.width * v1.height)));
+    const vp = page.getViewport({scale: k});
+    const c = document.createElement('canvas'); c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    await page.render({canvasContext: x, viewport: vp}).promise;
+    await addDrawing(o, baseName(file.name) + (pdf.numPages > 1 ? ` — лист ${p}` : ''), c, c.width, c.height,
+      {src: srcId, page: p, pw: Math.round(v1.width * 100) / 100, ph: Math.round(v1.height * 100) / 100});
+    c.width = c.height = 0; page.cleanup(); n++;
+  }
+  pdf.destroy();
+  if(!n) await MEDIA.del(srcId).catch(() => {});
+  return n;
+}
+
+/* ===================== Отметки на чертеже: геометрия и отрисовка ===================== */
+function bboxN(marks){
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for(const m of marks || []){
+    for(const [x, y] of m.p){ x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    if(m.lab){ x0 = Math.min(x0, m.lab[0]); y0 = Math.min(y0, m.lab[1]); x1 = Math.max(x1, m.lab[0]); y1 = Math.max(y1, m.lab[1]); }
+  }
+  return x0 === Infinity ? null : {x0, y0, x1, y1};
+}
+
+function bboxPts(pts){ const b = bboxN([{p: pts}]); return b || {x0: 0, y0: 0, x1: 0, y1: 0}; }
+function rdp(pts, eps){
+  if(pts.length < 3) return pts;
+  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1], dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+  let dmax = 0, idx = 0;
+  for(let i = 1; i < pts.length - 1; i++){
+    const d = len < 1e-6 ? Math.hypot(pts[i][0] - ax, pts[i][1] - ay) : Math.abs(dy * pts[i][0] - dx * pts[i][1] + bx * ay - by * ax) / len;
+    if(d > dmax){ dmax = d; idx = i; }
+  }
+  if(dmax > eps){ const l = rdp(pts.slice(0, idx + 1), eps), r = rdp(pts.slice(idx), eps); return l.slice(0, -1).concat(r); }
+  return [pts[0], pts[pts.length - 1]];
+}
+function pointInPoly(x, y, pts){
+  let inside = false;
+  for(let i = 0, j = pts.length - 1; i < pts.length; j = i++){
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function distSeg(px, py, [ax, ay], [bx, by]){
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+  const t = l2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2)) : 0;
+  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+}
+function distPolyline(px, py, pts, closed){
+  let d = Infinity;
+  for(let i = 1; i < pts.length; i++) d = Math.min(d, distSeg(px, py, pts[i - 1], pts[i]));
+  if(closed && pts.length > 2) d = Math.min(d, distSeg(px, py, pts[pts.length - 1], pts[0]));
+  return d;
+}
+function styleFor(kind, o = {}){
+  const k = o.scale || 1;
+  const base = kind === 'beacon' ? {color: COL.axis, fill: COL.axisFill} : {color: COL.mark, fill: COL.markFill};
+  return {...base, alpha: o.faint ? 0.5 : 1, w: (o.strong ? 3 : 2) * k, r: (o.strong ? 8 : 6) * k, fs: 13 * k, labelBg: '#ffffff', bounds: o.bounds};
+}
+function pill(ctx, x, y, w, hh){
+  const r = hh / 2; ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+  ctx.arc(x + w - r, y + r, r, -Math.PI / 2, Math.PI / 2); ctx.lineTo(x + r, y + hh);
+  ctx.arc(x + r, y + r, r, Math.PI / 2, Math.PI * 1.5); ctx.closePath();
+}
+function drawMarks(ctx, marks, map, st, label){
+  if(!marks || !marks.length) return null;
+  ctx.save(); ctx.globalAlpha = st.alpha ?? 1; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const ext = (x, y) => { if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; };
+  for(const m of marks){
+    const pts = m.p.map(map);
+    ctx.beginPath();
+    if(m.t === 'p'){
+      const [x, y] = pts[0];
+      ctx.arc(x, y, st.r, 0, Math.PI * 2); ctx.fillStyle = st.fill; ctx.fill();
+      ctx.lineWidth = st.w; ctx.strokeStyle = st.color; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, Math.max(1.5, st.r * 0.28), 0, Math.PI * 2); ctx.fillStyle = st.color; ctx.fill();
+      ext(x - st.r, y - st.r); ext(x + st.r, y + st.r); continue;
+    }
+    pts.forEach(([x, y], i) => { i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); ext(x, y); });
+    if(m.t === 'a'){ ctx.closePath(); ctx.fillStyle = st.fill; ctx.fill(); ctx.lineWidth = st.w; }
+    else ctx.lineWidth = st.w * 1.5;
+    ctx.strokeStyle = st.color; ctx.stroke();
+  }
+  let lab = null;
+  if(label){
+    ctx.font = `700 ${st.fs}px system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif`;
+    const tw = ctx.measureText(label).width, lh = st.fs * 1.6, lw = Math.max(lh, tw + st.fs * 0.9);
+    let lx = x1 + st.fs * 0.25, ly = y0 - lh - st.fs * 0.15;
+    if(st.bounds){ lx = Math.min(lx, st.bounds.w - lw - 2); ly = Math.max(2, Math.min(ly, st.bounds.h - lh - 2)); lx = Math.max(2, lx); }
+    pill(ctx, lx, ly, lw, lh); ctx.fillStyle = st.labelBg; ctx.fill();
+    ctx.lineWidth = Math.max(1.5, st.w * 0.7); ctx.strokeStyle = st.color; ctx.stroke();
+    ctx.fillStyle = st.color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, lx + lw / 2, ly + lh / 2 + st.fs * 0.06);
+    lab = {x: lx, y: ly, w: lw, h: lh};
+  }
+  ctx.restore();
+  return lab;
+}
+function planItems(o, drId){
+  const out = [];
+  for(const d of o.defects) if(d.plan && d.plan.d === drId && d.plan.m.length) out.push({kind: 'defect', ref: d, label: String(d.no)});
+  for(const b of o.beacons) if(b.plan && b.plan.d === drId && b.plan.m.length) out.push({kind: 'beacon', ref: b, label: b.num});
+  return out;
+}
+/* ===================== Отметки на листе: облако со штриховкой и выноской ===================== */
+// Вся геометрия считается в пикселях листа (как растр чертежа) и в миллиметрах бумаги,
+// поэтому одинаково выглядит на экране, во фрагментах Word и в векторном PDF.
+COL.defect = '#d81f26';
+const MARK_FONT = '"Arial Narrow","Helvetica Neue",Arial,sans-serif';
+const f1 = v => Math.round(v * 10) / 10;
+function sheetMetrics(dr){
+  const [wmm, hmm] = pageMM(dr), px = dr.w / wmm, L = Math.max(wmm, hmm);
+  const tmm = Math.min(7, Math.max(3.5, L / 95)); // высота номера: А4 ≈ 3,5 мм, А3 ≈ 4,4 мм, А2 ≈ 6 мм, А1–А0 — 7 мм
+  return {px, text: tmm * px, lw: Math.max(0.3 * px, 1), hatch: Math.max(1.5, tmm * 0.38) * px, bump: Math.max(1.4, tmm * 0.45) * px,
+    arrowL: Math.max(2.6, tmm * 0.75) * px, arrowW: Math.max(0.9, tmm * 0.25) * px, gap: tmm * 1.5 * px, minSide: 1.2 * px, tapSide: 3.5 * px};
+}
+function rectPx(m, dr){
+  const [a, b] = m.p;
+  return {x0: Math.min(a[0], b[0]) * dr.w, y0: Math.min(a[1], b[1]) * dr.h, x1: Math.max(a[0], b[0]) * dr.w, y1: Math.max(a[1], b[1]) * dr.h};
+}
+function cloudPath(r, bump){
+  const c = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];
+  let d = `M${f1(r.x0)} ${f1(r.y0)}`;
+  for(let i = 0; i < 4; i++){
+    const [ax, ay] = c[i], [bx, by] = c[(i + 1) % 4], len = Math.hypot(bx - ax, by - ay);
+    const n = Math.max(1, Math.round(len / bump)), rad = len / n * 0.62;
+    for(let k = 1; k <= n; k++) d += ` A${f1(rad)} ${f1(rad)} 0 0 1 ${f1(ax + (bx - ax) * k / n)} ${f1(ay + (by - ay) * k / n)}`;
+  }
+  return d + ' Z';
+}
+function hatchPath(r, gap){
+  const step = gap * Math.SQRT2, k1 = r.x1 + r.y1; let d = '';
+  for(let k = r.x0 + r.y0 + step / 2; k < k1; k += step){
+    const xa = Math.max(r.x0, k - r.y1), xb = Math.min(r.x1, k - r.y0);
+    if(xb - xa > 0.5) d += `M${f1(xa)} ${f1(k - xa)} L${f1(xb)} ${f1(k - xb)} `;
+  }
+  return d.trim();
+}
+function circlePath(x, y, R){ return `M${f1(x - R)} ${f1(y)} A${f1(R)} ${f1(R)} 0 1 0 ${f1(x + R)} ${f1(y)} A${f1(R)} ${f1(R)} 0 1 0 ${f1(x - R)} ${f1(y)} Z`; }
+function pillPath(x, y, w, h){
+  const r = h / 2;
+  return `M${f1(x + r)} ${f1(y)} L${f1(x + w - r)} ${f1(y)} A${f1(r)} ${f1(r)} 0 0 1 ${f1(x + w - r)} ${f1(y + h)} L${f1(x + r)} ${f1(y + h)} A${f1(r)} ${f1(r)} 0 0 1 ${f1(x + r)} ${f1(y)} Z`;
+}
+// выноска: стрелка в облако → линия → полка с номером над ней
+function leaderGeom(r, L, label, M){
+  const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+  const tw = M.text * 0.58 * Math.max(1, String(label).length) + M.text * 0.4;
+  const dir = L[0] >= cx ? 1 : -1, E = [L[0] + dir * tw, L[1]];
+  const inside = L[0] >= r.x0 && L[0] <= r.x1 && L[1] >= r.y0 && L[1] <= r.y1;
+  let line = `M${f1(L[0])} ${f1(L[1])} L${f1(E[0])} ${f1(E[1])}`, arrow = '';
+  if(!inside){
+    const vx = L[0] - cx, vy = L[1] - cy, ex = M.bump * 0.25;
+    const hw = (r.x1 - r.x0) / 2 + ex, hh = (r.y1 - r.y0) / 2 + ex;
+    const t = Math.min(Math.abs(vx) > 1e-6 ? hw / Math.abs(vx) : Infinity, Math.abs(vy) > 1e-6 ? hh / Math.abs(vy) : Infinity);
+    const T = [cx + vx * t, cy + vy * t], dl = Math.hypot(L[0] - T[0], L[1] - T[1]);
+    if(dl > M.lw * 2){
+      const ux = (L[0] - T[0]) / dl, uy = (L[1] - T[1]) / dl, al = Math.min(M.arrowL, dl * 0.5), aw = M.arrowW * al / M.arrowL;
+      const B = [T[0] + ux * al, T[1] + uy * al], nx = -uy * aw / 2, ny = ux * aw / 2;
+      line = `M${f1(B[0])} ${f1(B[1])} L${f1(L[0])} ${f1(L[1])} L${f1(E[0])} ${f1(E[1])}`;
+      arrow = `M${f1(T[0])} ${f1(T[1])} L${f1(B[0] + nx)} ${f1(B[1] + ny)} L${f1(B[0] - nx)} ${f1(B[1] - ny)} Z`;
+    }
+  }
+  return {line, arrow, text: {x: (L[0] + E[0]) / 2, y: L[1] - M.text * 0.22, size: M.text},
+    box: {x0: Math.min(L[0], E[0]), x1: Math.max(L[0], E[0]), y0: L[1] - M.text * 1.25, y1: L[1] + M.lw * 2}};
+}
+function markPrims(m, kind, label, dr, M, alpha, withLabel){
+  const color = kind === 'beacon' ? COL.axis : COL.defect, P = [];
+  if(m.t === 'r'){
+    const r = rectPx(m, dr);
+    P.push({type: 'path', d: hatchPath(r, M.hatch), stroke: color, w: M.lw * 0.7, alpha});
+    P.push({type: 'path', d: cloudPath(r, M.bump), stroke: color, w: M.lw, alpha});
+    if(withLabel && label && m.lab){
+      const g = leaderGeom(r, [m.lab[0] * dr.w, m.lab[1] * dr.h], label, M);
+      P.push({type: 'path', d: g.line, stroke: color, w: M.lw, alpha});
+      if(g.arrow) P.push({type: 'path', d: g.arrow, fill: color, alpha});
+      P.push({type: 'text', x: g.text.x, y: g.text.y, size: g.text.size, str: String(label), color, italic: true, align: 'center', alpha});
+    }
+    return P;
+  }
+  const pts = m.p.map(q => [q[0] * dr.w, q[1] * dr.h]);
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity;
+  for(const [x, y] of pts){ bx0 = Math.min(bx0, x); by0 = Math.min(by0, y); bx1 = Math.max(bx1, x); }
+  if(m.t === 'p'){
+    const [x, y] = pts[0], R = M.text * 0.34;
+    P.push({type: 'path', d: circlePath(x, y, R), stroke: color, w: M.lw * 1.2, fill: color, fillAlpha: 0.18, alpha});
+    P.push({type: 'path', d: circlePath(x, y, R * 0.3), fill: color, alpha});
+    bx1 = x + R; by0 = y - R;
+  } else {
+    const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join(' ') + (m.t === 'a' ? ' Z' : '');
+    P.push({type: 'path', d, stroke: color, w: M.lw * (m.t === 'a' ? 1.2 : 1.8), fill: m.t === 'a' ? color : null, fillAlpha: 0.16, alpha});
+  }
+  if(withLabel && label){
+    const fs = M.text * 0.78, hh = fs * 1.5, w = Math.max(hh, String(label).length * fs * 0.62 + fs * 0.8);
+    const x = bx1 + fs * 0.2, y = by0 - hh - fs * 0.1;
+    P.push({type: 'path', d: pillPath(x, y, w, hh), stroke: color, w: M.lw, fill: '#ffffff', fillAlpha: 1, alpha});
+    P.push({type: 'text', x: x + w / 2, y: y + hh * 0.72, size: fs, str: String(label), color, bold: true, align: 'center', alpha});
+  }
+  return P;
+}
+function itemPrims(kind, marks, label, dr, opts = {}){
+  const M = sheetMetrics(dr), alpha = opts.faint ? 0.45 : 1, out = [];
+  let labeled = false;
+  for(const m of marks || []){
+    const wl = m.t === 'r' ? true : !labeled;
+    if(m.t !== 'r') labeled = true;
+    out.push(...markPrims(m, kind, label, dr, M, alpha, wl));
+  }
+  return out;
+}
+const p2dCache = new Map();
+function p2d(d){ let p = p2dCache.get(d); if(!p){ p = new Path2D(d); if(p2dCache.size > 4000) p2dCache.clear(); p2dCache.set(d, p); } return p; }
+function paintPrims(ctx, prims){
+  for(const p of prims){
+    const a = p.alpha ?? 1;
+    if(p.type === 'path'){
+      if(!p.d) continue;
+      const P = p2d(p.d);
+      if(p.fill){ ctx.globalAlpha = a * (p.fillAlpha ?? 1); ctx.fillStyle = p.fill; ctx.fill(P); }
+      if(p.stroke){ ctx.globalAlpha = a; ctx.strokeStyle = p.stroke; ctx.lineWidth = p.w; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke(P); }
+    } else if(p.type === 'text'){
+      ctx.globalAlpha = a; ctx.fillStyle = p.color;
+      ctx.font = `${p.italic ? 'italic ' : ''}${p.bold ? '700' : '400'} ${p.size}px ${MARK_FONT}`;
+      ctx.textAlign = p.align || 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(p.str, p.x, p.y);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function marksBoxPx(marks, label, dr){
+  const M = sheetMetrics(dr); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const ext = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  for(const m of marks || []){
+    if(m.t === 'r'){
+      const r = rectPx(m, dr); ext(r.x0, r.y0); ext(r.x1, r.y1);
+      if(m.lab && label){ const g = leaderGeom(r, [m.lab[0] * dr.w, m.lab[1] * dr.h], label, M); ext(g.box.x0, g.box.y0); ext(g.box.x1, g.box.y1); }
+    } else {
+      for(const q of m.p) ext(q[0] * dr.w, q[1] * dr.h);
+      ext(x1 + M.text * 2.5, y0 - M.text * 1.6);
+    }
+  }
+  if(x0 === Infinity) return null;
+  const pad = M.text * 0.8;
+  return {x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad};
+}
+function cropRectPx(iw, ih, b){
+  const bw = b.x1 - b.x0, bh = b.y1 - b.y0, minSide = Math.min(iw, ih) * 0.22;
+  let cw = Math.max(bw * 1.5, bh * 1.5 * 4 / 3, minSide * 4 / 3), ch = cw * 3 / 4;
+  if(cw > iw){ cw = iw; ch = Math.min(ih, cw * 3 / 4); }
+  if(ch > ih){ ch = ih; cw = Math.min(iw, ch * 4 / 3); }
+  const sx = Math.max(0, Math.min(iw - cw, (b.x0 + b.x1) / 2 - cw / 2)), sy = Math.max(0, Math.min(ih - ch, (b.y0 + b.y1) / 2 - ch / 2));
+  return {sx, sy, cw, ch};
+}
+function inkSvg(st){
+  if(st.k === 'ellipse') return ellipsePts(st.e).map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join(' ') + ' Z';
+  const a = st.p || [];
+  if(!a.length) return '';
+  if(st.k === 'free' && a.length >= 6){
+    let d = `M${a[0]} ${a[1]}`;
+    for(let i = 2; i < a.length - 2; i += 2) d += ` Q${a[i]} ${a[i + 1]} ${f1((a[i] + a[i + 2]) / 2)} ${f1((a[i + 1] + a[i + 3]) / 2)}`;
+    return d + ` L${a[a.length - 2]} ${a[a.length - 1]}`;
+  }
+  let d = `M${a[0]} ${a[1]}`;
+  for(let i = 2; i < a.length; i += 2) d += ` L${a[i]} ${a[i + 1]}`;
+  if(a.length === 2) d += ` L${f1(a[0] + 0.05)} ${a[1]}`;
+  return d + (st.z ? ' Z' : '');
+}
+
+function cropRect(iw, ih, marks){
+  const b = bboxN(marks); if(!b) return null;
+  const bx0 = b.x0 * iw, bx1 = b.x1 * iw, by0 = b.y0 * ih, by1 = b.y1 * ih, bw = bx1 - bx0, bh = by1 - by0;
+  const minSide = Math.min(iw, ih) * 0.22;
+  let cw = Math.max(bw * 1.8, bh * 1.8 * 4 / 3, minSide * 4 / 3), ch = cw * 3 / 4;
+  if(cw > iw){ cw = iw; ch = Math.min(ih, cw * 3 / 4); }
+  if(ch > ih){ ch = ih; cw = Math.min(iw, ch * 4 / 3); }
+  const sx = Math.max(0, Math.min(iw - cw, (bx0 + bx1) / 2 - cw / 2)), sy = Math.max(0, Math.min(ih - ch, (by0 + by1) / 2 - ch / 2));
+  return {sx, sy, cw, ch};
+}
+async function renderCrop(canvas, dr, marks, kind, label, outW, ink){
+  const im = await drawingImage(dr.id);
+  const b = marksBoxPx(marks, label, dr); if(!b) return null;
+  const c = cropRectPx(im.w, im.h, b);
+  outW = outW || 900;
+  const outH = Math.round(outW * c.ch / c.cw), k = outW / c.cw;
+  canvas.width = outW; canvas.height = outH;
+  const x = canvas.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, outW, outH);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(im.img, c.sx, c.sy, c.cw, c.ch, 0, 0, outW, outH);
+  x.save(); x.setTransform(k, 0, 0, k, -c.sx * k, -c.sy * k);
+  if(ink && ink.length) drawInk(x, ink);
+  paintPrims(x, itemPrims(kind, marks, label, dr));
+  x.restore();
+  return canvas;
+}
+
+async function renderMap(dr, o, maxSide, ink, layers = {defects: true, beacons: true}){
+  const im = await drawingImage(dr.id);
+  const k = Math.min(1, maxSide / Math.max(im.w, im.h)), w = Math.round(im.w * k), hh = Math.round(im.h * k);
+  const c = document.createElement('canvas'); c.width = w; c.height = hh;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, hh); x.imageSmoothingQuality = 'high';
+  x.drawImage(im.img, 0, 0, w, hh);
+  x.setTransform(w / im.w, 0, 0, hh / im.h, 0, 0);
+  if(ink && ink.length) drawInk(x, ink);
+  for(const it of planItems(o, dr.id)) if(it.kind === 'beacon' ? layers.beacons : layers.defects) paintPrims(x, itemPrims(it.kind, it.ref.plan.m, it.label, dr));
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  return c;
+}
+
+
+/* ===================== Полевые записи на чертеже (рукописный слой) ===================== */
+const INK_COLORS = ['#14202a', '#c8202f', '#1d4f7a', '#2c7a4b', '#e07a00', '#7a3fb0', '#e8c200', '#8a5a2b'];
+const INK_TOOLS = {
+  pen:    {name: 'Ручка',    widths: [1.5, 2.5, 4, 7], alpha: 1},
+  marker: {name: 'Маркер',   widths: [10, 16, 24],     alpha: 0.4, mult: true},
+  pencil: {name: 'Карандаш', widths: [1, 1.8, 3],      alpha: 0.8}
+};
+const TEXT_SIZES = [12, 16, 22, 30];
+function ui(){
+  if(!db.ui) db.ui = {};
+  const u = db.ui, def = (k, v) => { if(u[k] === undefined) u[k] = v; };
+  def('tool', 'hand'); def('color', {}); def('width', {});
+  def('eraser', 'object'); def('straight', true); def('stylus', false); def('showInk', true); def('showMarks', true); def('textSize', 1);
+  const dc = {pen: '#c8202f', marker: '#e8c200', pencil: '#14202a', text: '#c8202f'};
+  for(const k in dc) if(!u.color[k]) u.color[k] = dc[k];
+  for(const k of ['pen', 'marker', 'pencil']) if(u.width[k] === undefined) u.width[k] = 1;
+  return u;
+}
+const inkCache = new Map();
+async function loadInk(dr){
+  if(inkCache.has(dr.id)) return inkCache.get(dr.id);
+  let s = [];
+  if(dr.ink){
+    try { const b = await MEDIA.get(dr.ink); if(b){ const j = JSON.parse(await b.text()); if(j && Array.isArray(j.s)) s = j.s; } }
+    catch(e) {}
+  }
+  inkCache.set(dr.id, s);
+  return s;
+}
+async function writeInk(dr, strokes){
+  if(!dr.ink){ dr.ink = uid(); }
+  dr.inkN = strokes.length; save();
+  await MEDIA.put(dr.ink, new Blob([JSON.stringify({v: 1, s: strokes})], {type: 'application/json'}));
+}
+const pathCache = new WeakMap();
+function ellipsePts(e, n = 72){
+  const [cx, cy, rx, ry, rot] = e, out = [], c = Math.cos(rot), sn = Math.sin(rot);
+  for(let i = 0; i <= n; i++){ const t = i / n * 2 * Math.PI, x = rx * Math.cos(t), y = ry * Math.sin(t); out.push([cx + x * c - y * sn, cy + x * sn + y * c]); }
+  return out;
+}
+function strokePts(st){
+  if(st.k === 'ellipse') return ellipsePts(st.e);
+  const a = st.p || [], out = [];
+  for(let i = 0; i < a.length; i += 2) out.push([a[i], a[i + 1]]);
+  if(st.z && out.length) out.push(out[0]);
+  return out;
+}
+function inkPath(st){
+  let p = pathCache.get(st); if(p) return p;
+  p = new Path2D(inkSvg(st) || 'M0 0');
+  pathCache.set(st, p); return p;
+}
+
+const INK_FONT = 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+function drawInk(ctx, strokes){
+  for(const st of strokes){
+    ctx.save();
+    if(st.k === 'text'){
+      ctx.fillStyle = st.c; ctx.font = `600 ${st.fs}px ${INK_FONT}`; ctx.textBaseline = 'middle';
+      String(st.txt).split('\n').forEach((line, i) => ctx.fillText(line, st.x, st.y + i * st.fs * 1.2));
+    } else {
+      const tool = INK_TOOLS[st.t] || INK_TOOLS.pen;
+      ctx.globalAlpha = tool.alpha; if(tool.mult) ctx.globalCompositeOperation = 'multiply';
+      ctx.strokeStyle = st.c; ctx.lineWidth = st.w; ctx.lineCap = st.t === 'marker' ? 'butt' : 'round'; ctx.lineJoin = 'round';
+      ctx.stroke(inkPath(st));
+    }
+    ctx.restore();
+  }
+}
+function textBox(st){
+  const lines = String(st.txt).split('\n'), wmax = Math.max(...lines.map(l => l.length));
+  return {x0: st.x, y0: st.y - st.fs * 0.6, x1: st.x + wmax * st.fs * 0.6, y1: st.y + st.fs * (lines.length - 1) * 1.2 + st.fs * 0.6};
+}
+function hitStroke(st, x, y, r){
+  if(st.k === 'text'){ const b = textBox(st); return x >= b.x0 - r && x <= b.x1 + r && y >= b.y0 - r && y <= b.y1 + r; }
+  const pts = strokePts(st), rr = r + (st.w || 0) / 2;
+  const b = bboxPts(pts);
+  if(x < b.x0 - rr || x > b.x1 + rr || y < b.y0 - rr || y > b.y1 + rr) return false;
+  if(pts.length === 1) return Math.hypot(x - pts[0][0], y - pts[0][1]) <= rr;
+  return distPolyline(x, y, pts, false) <= rr;
+}
+function splitStroke(st, x, y, r){
+  const src = strokePts(st), rr = r + st.w / 2, step = Math.max(0.5, r / 3), dense = [];
+  for(let i = 0; i < src.length; i++){
+    if(i === 0){ dense.push(src[0]); continue; }
+    const [ax, ay] = src[i - 1], [bx, by] = src[i], n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / step));
+    for(let k = 1; k <= n; k++) dense.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n]);
+  }
+  const out = []; let run = [];
+  const flush = () => { if(run.length >= 2) out.push({t: st.t, c: st.c, w: st.w, k: 'free', p: rdp(run, step * 0.3).flat().map(v => Math.round(v * 10) / 10)}); run = []; };
+  for(const p of dense){ if(Math.hypot(p[0] - x, p[1] - y) > rr) run.push(p); else flush(); }
+  flush();
+  return out;
+}
+
+/* --- распознавание фигур: линия, ломаная, треугольник, прямоугольник, эллипс --- */
+function plen(pts){ let L = 0; for(let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; }
+function snapAngle(a, z){
+  const dx = z[0] - a[0], dy = z[1] - a[1], len = Math.hypot(dx, dy), ang = Math.atan2(dy, dx), near = Math.round(ang / (Math.PI / 4)) * (Math.PI / 4);
+  return Math.abs(ang - near) < 4 * Math.PI / 180 ? [a[0] + len * Math.cos(near), a[1] + len * Math.sin(near)] : z;
+}
+function asLine(pts, s, strict){
+  if(pts.length < 2) return null;
+  const a = pts[0], z = pts[pts.length - 1], dx = z[0] - a[0], dy = z[1] - a[1], len = Math.hypot(dx, dy);
+  const Ls = len * s; if(Ls < (strict ? 30 : 16)) return null;
+  let m = 0; for(const p of pts) m = Math.max(m, Math.abs(dy * p[0] - dx * p[1] + z[0] * a[1] - z[1] * a[0]) / len);
+  const tol = strict ? Math.max(3.5, 0.035 * Ls) : Math.max(6, 0.08 * Ls);
+  if(m * s > tol || plen(pts) > len * 1.25) return null;
+  const e = snapAngle(a, z);
+  return {k: 'line', p: [a[0], a[1], e[0], e[1]]};
+}
+function polyErr(pts, poly, closed){
+  let sum = 0; for(const p of pts) sum += distPolyline(p[0], p[1], poly, closed);
+  return sum / pts.length;
+}
+function rdpClosed(pts, eps){
+  let far = 0, dm = -1;
+  for(let i = 1; i < pts.length; i++){ const d = Math.hypot(pts[i][0] - pts[0][0], pts[i][1] - pts[0][1]); if(d > dm){ dm = d; far = i; } }
+  const a = rdp(pts.slice(0, far + 1), eps), b = rdp(pts.slice(far).concat([pts[0]]), eps);
+  let poly = a.slice(0, -1).concat(b.slice(0, -1));
+  // убрать почти прямые углы-вершины
+  let changed = true;
+  while(changed && poly.length > 3){
+    changed = false;
+    for(let i = 0; i < poly.length; i++){
+      const p = poly[(i - 1 + poly.length) % poly.length], c = poly[i], n = poly[(i + 1) % poly.length];
+      const v1 = [c[0] - p[0], c[1] - p[1]], v2 = [n[0] - c[0], n[1] - c[1]];
+      const cos = (v1[0] * v2[0] + v1[1] * v2[1]) / ((Math.hypot(...v1) * Math.hypot(...v2)) || 1);
+      if(cos > 0.94){ poly.splice(i, 1); changed = true; break; }
+    }
+  }
+  return poly;
+}
+function fitEllipse(pts){
+  const n = pts.length; let mx = 0, my = 0;
+  for(const p of pts){ mx += p[0]; my += p[1]; } mx /= n; my /= n;
+  let sxx = 0, syy = 0, sxy = 0;
+  for(const p of pts){ const dx = p[0] - mx, dy = p[1] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+  let rot = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  for(const r of [0, Math.PI / 2, -Math.PI / 2]) if(Math.abs(rot - r) < 8 * Math.PI / 180) rot = 0;
+  const c = Math.cos(rot), s = Math.sin(rot);
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  const uv = pts.map(p => { const dx = p[0] - mx, dy = p[1] - my, u = dx * c + dy * s, v = -dx * s + dy * c; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); return [u, v]; });
+  let rx = (u1 - u0) / 2, ry = (v1 - v0) / 2; if(rx < 1e-6 || ry < 1e-6) return null;
+  const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+  let err = 0; for(const [u, v] of uv) err += Math.abs(Math.hypot((u - cu) / rx, (v - cv) / ry) - 1); err /= n;
+  const cx = mx + cu * c - cv * s, cy = my + cu * s + cv * c;
+  if(Math.abs(rx - ry) / Math.max(rx, ry) < 0.12){ rx = ry = (rx + ry) / 2; rot = 0; }
+  return {err, e: [cx, cy, rx, ry, rot]};
+}
+function asRect(q){
+  for(let i = 0; i < 4; i++){
+    const p = q[(i + 3) % 4], c = q[i], n = q[(i + 1) % 4];
+    const v1 = [p[0] - c[0], p[1] - c[1]], v2 = [n[0] - c[0], n[1] - c[1]];
+    if(Math.abs((v1[0] * v2[0] + v1[1] * v2[1]) / ((Math.hypot(...v1) * Math.hypot(...v2)) || 1)) > 0.26) return null;
+  }
+  let best = 0, ang = 0;
+  for(let i = 0; i < 4; i++){ const a = q[i], b = q[(i + 1) % 4], l = Math.hypot(b[0] - a[0], b[1] - a[1]); if(l > best){ best = l; ang = Math.atan2(b[1] - a[1], b[0] - a[0]); } }
+  const nr = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2); if(Math.abs(ang - nr) < 6 * Math.PI / 180) ang = nr;
+  const c = Math.cos(ang), s = Math.sin(ang);
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  for(const p of q){ const u = p[0] * c + p[1] * s, v = -p[0] * s + p[1] * c; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+  return [[u0, v0], [u1, v0], [u1, v1], [u0, v1]].map(([u, v]) => [u * c - v * s, u * s + v * c]);
+}
+function recognize(pts, s){
+  if(pts.length < 3 || plen(pts) * s < 20) return null;
+  const line = asLine(pts, s, false); if(line) return line;
+  const b = bboxPts(pts), diag = Math.hypot(b.x1 - b.x0, b.y1 - b.y0), a = pts[0], z = pts[pts.length - 1];
+  const closed = Math.hypot(a[0] - z[0], a[1] - z[1]) < Math.max(25 / s, diag * 0.22);
+  const eps = Math.max(6 / s, diag * 0.07);
+  if(!closed){
+    const simp = rdp(pts, eps);
+    const longSegs = simp.every((p, i) => !i || Math.hypot(p[0] - simp[i - 1][0], p[1] - simp[i - 1][1]) * s > 14);
+    if(simp.length >= 3 && simp.length <= 6 && longSegs && polyErr(pts, simp, false) < diag * 0.035) return {k: 'poly', p: simp.flat()};
+    return null;
+  }
+  const poly = rdpClosed(pts, eps), n = poly.length;
+  if((n === 3 || n === 4) && polyErr(pts, poly, true) < diag * 0.045){
+    const r = n === 4 ? asRect(poly) : null;
+    return {k: 'poly', p: (r || poly).flat(), z: 1};
+  }
+  const el = fitEllipse(pts);
+  if(el && el.err < 0.13) return {k: 'ellipse', e: el.e};
+  if(n >= 3 && n <= 8 && polyErr(pts, poly, true) < diag * 0.035) return {k: 'poly', p: poly.flat(), z: 1};
+  return null;
+}
+
+/* --- значки инструментов --- */
+const svgI = d => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const IC = {
+  hand: svgI('<path d="M12 3v18M3 12h18"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/>'),
+  pen: svgI('<path d="M4 20l1.2-4.6L15.6 5a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z"/><path d="M13.5 7l3.5 3.5"/>'),
+  marker: svgI('<path d="M7 17l-3 3h6l1.5-1.5"/><path d="M7 17l9.5-9.5 3 3L10 20z"/><path d="M14 5l2-2 5 5-2 2"/>'),
+  pencil: svgI('<path d="M4 20l1.5-5.5L15.8 4.2l4 4L9.5 18.5z"/><path d="M5.5 14.5l4 4M13.6 6.4l4 4"/>'),
+  eraser: svgI('<path d="M9 20h11"/><path d="M4.6 15.4l9.2-9.2a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 19H8.2z"/><path d="M9.2 10.8l5 5"/>'),
+  text: svgI('<path d="M5 7V4h14v3M12 4v16M9 20h6"/>'),
+  undo: svgI('<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>'),
+  redo: svgI('<path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>'),
+  more: svgI('<circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>')
+};
+
+/* ===================== Рабочий экран чертежа ===================== */
+async function openPlan(cfg){
+  const o = cur(), dr = cfg.drawing, u = ui();
+  let im, strokes;
+  busy('Открываю чертёж…');
+  try { im = await drawingImage(dr.id); strokes = (await loadInk(dr)).slice(); }
+  catch(e) { busy(null); toast('Чертёж не открылся: ' + e.message, true); return; }
+  busy(null);
+  const iw = im.w, ih = im.h, img = im.img, work = cfg.mode === 'work', M = sheetMetrics(dr);
+  // phase: ink — записи; mark — новая или редактируемая отметка (draft); select — выделена отметка на листе (sel)
+  let phase = work ? 'ink' : 'mark', draft = null, sel = null;
+  const startDraft = (kind, label, id, marks) => {
+    draft = {kind, label, id: id || null, marks: clone(marks || [])};
+    draft.step = draft.marks.length ? 'adjust' : 'draw';
+  };
+  if(!work) startDraft(cfg.self.kind, cfg.self.label, cfg.self.id, cfg.marks);
+  let undoS = [], redoS = [], persistT = 0, persistPending = false, pop = null, hintT = 0;
+  const body = h(`<div class="plan-wrap"><canvas class="plan-cv" aria-label="Чертёж"></canvas><div class="plan-hint" hidden></div></div>`);
+  const cv = $('canvas', body), hint = $('.plan-hint', body), ctx = cv.getContext('2d');
+  const foot = h(`<div class="plan-foot"></div>`);
+  const node = openSheet(dr.name, body, foot, {cls: 'plan-sheet', replace: !!cfg.replace});
+  let W = 0, H = 0, dpr = 1, s = 1, tx = 0, ty = 0, fitS = 1, raf = 0;
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--sheet-2').trim() || '#e9eef0';
+  const clampS = v => Math.min(Math.max(v, fitS * 0.5), Math.max(fitS * 40, 4));
+  const toImg = p => [(p.x - tx) / s, (p.y - ty) / s];
+  const toScr = (x, y) => [tx + x * s, ty + y * s];
+  const nrm = ([x, y]) => [round5(Math.min(1, Math.max(0, x / iw))), round5(Math.min(1, Math.max(0, y / ih)))];
+  const nextNo = () => String(o.defects.reduce((m, d) => Math.max(m, d.no || 0), 0) + 1);
+  const navTail = () => u.stylus ? ' Пальцы двигают лист.' : ' Масштаб — двумя пальцами.';
+
+  function showHint(text, ms){
+    hint.textContent = text; hint.hidden = !text; clearTimeout(hintT);
+    if(text && ms) hintT = setTimeout(() => { hint.hidden = true; }, ms);
+  }
+  function toolHint(){
+    const t = u.tool, touch = u.stylus ? ' Пальцы двигают лист.' : ' Двумя пальцами — масштаб.';
+    const m = {
+      hand: 'Двигайте лист пальцем. Нажмите на отметку, чтобы выделить её: перетащить, убрать или открыть запись.',
+      pen: 'Задержите перо в конце линии — она станет ровной. Так же — круг, прямоугольник, треугольник.' + touch,
+      marker: 'Маркер — полупрозрачный, для выделения.' + touch,
+      pencil: 'Карандаш — тонкие пометки.' + touch,
+      eraser: u.eraser === 'object' ? 'Ластик стирает запись целиком.' + touch : 'Ластик стирает только то, по чему провели.' + touch,
+      text: 'Коснитесь места на листе и введите текст — например, размер.' + touch
+    };
+    showHint(m[t] || '', 4500);
+  }
+  const persist = () => {
+    inkCache.set(dr.id, strokes); persistPending = true; clearTimeout(persistT);
+    persistT = setTimeout(flushInk, 500);
+  };
+  function flushInk(){
+    clearTimeout(persistT); if(!persistPending) return; persistPending = false;
+    writeInk(dr, strokes).catch(e => toast('Записи не сохранились: ' + e.message, true));
+  }
+  function commitInk(next){ undoS.push(strokes); if(undoS.length > 100) undoS.shift(); redoS = []; strokes = next; persist(); drawFoot(); schedule(); }
+  const curColor = () => u.color[INK_TOOLS[u.tool] ? u.tool : u.tool === 'text' ? 'text' : 'pen'];
+
+  /* --- редактируемая отметка --- */
+  function target(){
+    if(phase === 'mark' && draft) return {marks: draft.marks, kind: draft.kind, label: draft.label, mi: 0};
+    if(phase === 'select' && sel && sel.it.ref.plan) return {marks: sel.it.ref.plan.m, kind: sel.it.kind, label: sel.it.label, mi: sel.mi};
+    return null;
+  }
+  function dirPoint(r, dir){
+    const off = M.gap;
+    const x = dir.includes('e') ? r.x1 + off : r.x0 - off, y = dir.includes('n') ? r.y0 - off : r.y1 + off;
+    return [Math.min(iw, Math.max(0, x)), Math.min(ih, Math.max(0, y))];
+  }
+  function autoDir(r){
+    const east = r.x1 + M.gap + M.text * 2.5 < iw, north = r.y0 - M.gap - M.text * 1.3 > 0;
+    return (north ? 'n' : 's') + (east ? 'e' : 'w');
+  }
+  function commitEdit(){
+    if(phase === 'select' && sel){ sel.changed = true; sel.it.ref.updated = Date.now(); save(); render(); }
+    drawFoot(); schedule();
+  }
+  function setDir(k){
+    const T = target(); if(!T) return;
+    const m = T.marks[T.mi]; if(!m || m.t !== 'r') return;
+    m.lab = nrm(dirPoint(rectPx(m, dr), k)); commitEdit();
+  }
+  function startSelect(hit){
+    sel = {it: hit.it, mi: hit.mi, orig: clone(hit.it.ref.plan), changed: false};
+    phase = 'select'; closePop(); drawFoot(); schedule();
+  }
+  function endSelect(){ phase = 'ink'; sel = null; drawFoot(); toolHint(); schedule(); }
+
+  /* --- панель --- */
+  function toolBtn(t, label){
+    const dot = INK_TOOLS[t] || t === 'text' ? `<span class="dot" style="background:${u.color[t]}"></span>` : '';
+    return `<button type="button" class="tb${u.tool === t ? ' on' : ''}" data-t="${t}" aria-label="${label}" title="${label}" aria-pressed="${u.tool === t}">${IC[t]}${dot}</button>`;
+  }
+  const dirBtns = () => `<div class="dir-btns" role="group" aria-label="Направление выноски">${[['nw', '↖'], ['ne', '↗'], ['sw', '↙'], ['se', '↘']].map(([k, t]) => `<button type="button" class="tb" data-dir="${k}" aria-label="Выноска ${t}">${t}</button>`).join('')}</div>`;
+  function drawFoot(){
+    if(phase === 'ink'){
+      foot.innerHTML = `<div class="ink-bar"><div class="ink-tools">
+          ${toolBtn('hand', 'Двигать лист и выделять отметки')}${toolBtn('pen', 'Ручка')}${toolBtn('marker', 'Маркер')}${toolBtn('pencil', 'Карандаш')}${toolBtn('eraser', 'Ластик')}${toolBtn('text', 'Текст')}
+          <button type="button" class="tb" data-pop="opts" aria-label="Цвет и толщина" title="Цвет и толщина"><span class="swatch" style="background:${curColor()}"></span></button></div>
+        <div class="ink-acts"><button type="button" class="tb" data-undo ${undoS.length ? '' : 'disabled'} aria-label="Отменить" title="Отменить">${IC.undo}</button>
+          <button type="button" class="tb" data-redo ${redoS.length ? '' : 'disabled'} aria-label="Повторить" title="Повторить">${IC.redo}</button>
+          <button type="button" class="tb" data-pop="more" aria-label="Ещё" title="Ещё">${IC.more}</button>
+          <button type="button" class="btn axis" data-new-beacon>+ Маяк</button><button type="button" class="btn mark" data-new>+ Дефект</button></div></div>`;
+      return;
+    }
+    if(phase === 'mark'){
+      const isB = draft.kind === 'beacon', m0 = draft.marks[0];
+      if(draft.step === 'draw'){
+        foot.innerHTML = `<div class="mk-bar"><button type="button" class="btn" data-mk-cancel>Отмена</button>${!work && cfg.marks && cfg.marks.length ? '<button type="button" class="btn danger" data-mk-remove>Убрать отметку</button>' : ''}</div>`;
+        showHint((isB ? 'Коснитесь места установки маяка.' : 'Растяните прямоугольник по месту дефекта. Короткое касание — маленькая отметка.') + navTail());
+      } else {
+        foot.innerHTML = `<div class="mk-bar">${!isB && m0 && m0.t === 'r' ? dirBtns() : ''}<button type="button" class="btn" data-mk-again>Заново</button>
+          ${work ? '<button type="button" class="btn" data-mk-cancel>Отмена</button>' : '<button type="button" class="btn danger" data-mk-remove>Убрать</button>'}
+          <button type="button" class="btn primary" data-mk-done>Готово</button></div>`;
+        showHint((isB ? 'Перетащите метку или коснитесь нового места.'
+          : m0 && m0.t === 'r' ? 'Коснитесь места для номера или выберите направление выноски. Прямоугольник и его углы можно перетаскивать.'
+          : 'Отметку можно перетащить. «Заново» — нарисовать облаком.') + navTail());
+      }
+      return;
+    }
+    const m = sel && sel.it.ref.plan ? sel.it.ref.plan.m[sel.mi] : null;
+    foot.innerHTML = `<div class="mk-bar">${m && m.t === 'r' ? dirBtns() : ''}<button type="button" class="btn" data-sel-open>Открыть</button>
+      <button type="button" class="btn danger" data-sel-del>Убрать</button><button type="button" class="btn" data-sel-revert ${sel && sel.changed ? '' : 'disabled'}>Вернуть</button>
+      <button type="button" class="btn primary" data-sel-done>Готово</button></div>`;
+    showHint(`${sel.it.kind === 'beacon' ? 'Маяк ' : 'Дефект № '}${sel.it.label}: перетащите отметку, её углы или номер; коснитесь листа — номер переместится туда.`);
+  }
+  function closePop(){ if(pop){ pop.remove(); pop = null; } }
+  function openPop(kind){
+    if(pop && pop.dataset.kind === kind){ closePop(); return; }
+    closePop();
+    pop = h(`<div class="pop" data-kind="${kind}"></div>`);
+    if(kind === 'opts'){
+      let t = u.tool;
+      if(t === 'hand'){ t = u.tool = 'pen'; save(); drawFoot(); }
+      if(t === 'eraser'){
+        pop.innerHTML = `<div class="pop-title">Ластик</div><div class="seg"><button type="button" data-er="object" class="${u.eraser === 'object' ? 'on' : ''}">Запись целиком</button><button type="button" data-er="part" class="${u.eraser === 'part' ? 'on' : ''}">Частично</button></div>`;
+      } else {
+        const sizes = t === 'text' ? TEXT_SIZES.map((v, i) => `<button type="button" class="wd${u.textSize === i ? ' on' : ''}" data-ts="${i}" aria-label="Размер ${v}"><span style="font-size:${10 + i * 4}px;font-weight:700">А</span></button>`).join('')
+          : INK_TOOLS[t].widths.map((w, i) => `<button type="button" class="wd${u.width[t] === i ? ' on' : ''}" data-w="${i}" aria-label="Толщина ${i + 1}"><i style="width:22px;height:${Math.max(2, Math.min(14, w * (t === 'marker' ? 0.55 : 1.2)))}px;background:${u.color[t]};opacity:${INK_TOOLS[t].alpha}"></i></button>`).join('');
+        const key = t === 'text' ? 'text' : t;
+        pop.innerHTML = `<div class="pop-title">${t === 'text' ? 'Текст' : INK_TOOLS[t].name}</div><div class="pop-row">${sizes}</div>
+          <div class="pop-row">${INK_COLORS.map(c => `<button type="button" class="sw${u.color[key] === c ? ' on' : ''}" data-c="${c}" style="background:${c}" aria-label="Цвет ${c}"></button>`).join('')}
+            <label class="sw sw-any" title="Другой цвет" aria-label="Другой цвет"><input type="color" value="${u.color[key]}"></label></div>`;
+        pop.dataset.key = key;
+      }
+    } else {
+      pop.innerHTML = `
+        <label class="menu-item"><input type="checkbox" data-set="straight" ${u.straight ? 'checked' : ''}> Сразу выравнивать прямые линии</label>
+        <label class="menu-item"><input type="checkbox" data-set="stylus" ${u.stylus ? 'checked' : ''}> Рисует только стилус, пальцы двигают лист</label>
+        <label class="menu-item"><input type="checkbox" data-set="showInk" ${u.showInk ? 'checked' : ''}> Показывать записи</label>
+        <label class="menu-item"><input type="checkbox" data-set="showMarks" ${u.showMarks ? 'checked' : ''}> Показывать отметки дефектов и маяков</label>
+        ${o.drawings.length > 1 ? '<button type="button" class="menu-item" data-act="sheets">Другой лист…</button>' : ''}
+        <button type="button" class="menu-item" data-act="pdf">Выгрузить лист в PDF (${esc(fmtLabel(dr))})</button>
+        <button type="button" class="menu-item danger" data-act="clear" ${strokes.length ? '' : 'disabled'}>Стереть все записи на листе</button>`;
+    }
+    body.append(pop);
+  }
+  body.addEventListener('click', async e => {
+    if(!pop || !pop.contains(e.target)) return;
+    const er = e.target.closest('[data-er]'); if(er){ u.eraser = er.dataset.er; save(); closePop(); toolHint(); return; }
+    const w = e.target.closest('[data-w]'); if(w){ u.width[u.tool] = +w.dataset.w; save(); closePop(); drawFoot(); return; }
+    const ts = e.target.closest('[data-ts]'); if(ts){ u.textSize = +ts.dataset.ts; save(); closePop(); return; }
+    const c = e.target.closest('.sw[data-c]'); if(c){ u.color[pop.dataset.key] = c.dataset.c; save(); closePop(); drawFoot(); return; }
+    const sh = e.target.closest('[data-sheet]');
+    if(sh){ const nd = o.drawings.find(x => x.id === sh.dataset.sheet); if(nd) openPlan({drawing: nd, mode: 'work', replace: true}); return; }
+    const act = e.target.closest('[data-act]');
+    if(act){
+      const a = act.dataset.act; closePop();
+      if(a === 'clear'){ if(await ask('Стереть все записи на этом листе? Отменить можно кнопкой «Отменить».', {ok: 'Стереть', danger: true})) commitInk([]); }
+      else if(a === 'pdf'){ flushInk(); sheetsPdfDialog([dr]); }
+      else if(a === 'sheets'){
+        pop = h(`<div class="pop" data-kind="sheets"><div class="pop-title">Другой лист</div>${o.drawings.map(d => `<button type="button" class="menu-item" data-sheet="${d.id}"${d.id === dr.id ? ' disabled' : ''}>${esc(d.name)}</button>`).join('')}</div>`);
+        body.append(pop);
+      }
+    }
+  });
+  body.addEventListener('change', e => {
+    if(!pop || !pop.contains(e.target)) return;
+    if(e.target.type === 'color'){ u.color[pop.dataset.key] = e.target.value; save(); closePop(); drawFoot(); return; }
+    const k = e.target.dataset.set; if(!k) return;
+    u[k] = e.target.checked; save();
+    if(k === 'stylus') toolHint();
+    drawFoot(); schedule();
+  });
+  foot.addEventListener('click', async e => {
+    const t = e.target.closest('[data-t]');
+    if(t){
+      const nt = t.dataset.t;
+      if(nt === u.tool && nt !== 'hand'){ openPop('opts'); return; }
+      closePop(); u.tool = nt; save(); drawFoot(); toolHint(); return;
+    }
+    const p = e.target.closest('[data-pop]'); if(p){ openPop(p.dataset.pop); return; }
+    const dir = e.target.closest('[data-dir]'); if(dir){ setDir(dir.dataset.dir); return; }
+    if(e.target.closest('[data-undo]')){ closePop(); if(undoS.length){ redoS.push(strokes); strokes = undoS.pop(); persist(); } drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-redo]')){ closePop(); if(redoS.length){ undoS.push(strokes); strokes = redoS.pop(); persist(); } drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-new]')){ closePop(); startDraft('defect', nextNo()); phase = 'mark'; drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-new-beacon]')){ closePop(); startDraft('beacon', nextBeaconNo(o)); phase = 'mark'; drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-mk-cancel]')){
+      if(work){ phase = 'ink'; draft = null; drawFoot(); toolHint(); schedule(); } else closeTop(false);
+      return;
+    }
+    if(e.target.closest('[data-mk-remove]')){ if(!work){ cfg.onDone([]); closeTop(false); } return; }
+    if(e.target.closest('[data-mk-again]')){ draft.marks = []; draft.step = 'draw'; drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-mk-done]')){
+      if(!draft || !draft.marks.length) return;
+      if(!work){ cfg.onDone(draft.marks); closeTop(false); return; }
+      const m = draft.marks, kind = draft.kind; phase = 'ink'; draft = null; drawFoot(); showHint('', 0); schedule();
+      if(kind === 'beacon') beaconForm(null, {plan: {d: dr.id, m}}, {fromPlan: true}); else defectForm(null, {plan: {d: dr.id, m}});
+      return;
+    }
+    if(e.target.closest('[data-sel-open]')){ const it = sel.it; endSelect(); openItem(it); return; }
+    if(e.target.closest('[data-sel-del]')){
+      const it = sel.it, what = it.kind === 'beacon' ? `маяка ${it.label}` : `дефекта № ${it.label}`;
+      if(!(await ask(`Убрать отметку ${what} с листа? Сама запись останется в списке.`, {ok: 'Убрать', danger: true}))) return;
+      const pl = it.ref.plan; pl.m.splice(sel.mi, 1); if(!pl.m.length) it.ref.plan = null;
+      it.ref.updated = Date.now(); save(); render(); endSelect(); toast('Отметка убрана'); return;
+    }
+    if(e.target.closest('[data-sel-revert]')){ sel.it.ref.plan = clone(sel.orig); sel.changed = false; save(); render(); drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-sel-done]')){ endSelect(); return; }
+  });
+  node.beforeClose = () => {
+    if(phase === 'select'){ endSelect(); return true; }
+    if(work && phase === 'mark'){ phase = 'ink'; draft = null; drawFoot(); toolHint(); schedule(); return true; }
+    return false;
+  };
+
+  /* --- вид --- */
+  function size(keep){
+    const r = body.getBoundingClientRect();
+    let cx, cy; if(keep && W){ cx = (W / 2 - tx) / s; cy = (H / 2 - ty) / s; }
+    W = Math.max(1, r.width); H = Math.max(1, r.height); dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    fitS = Math.min(W / iw, H / ih) * 0.94;
+    if(cx !== undefined){ tx = W / 2 - cx * s; ty = H / 2 - cy * s; }
+    schedule();
+  }
+  function fit(){ s = fitS; tx = (W - iw * s) / 2; ty = (H - ih * s) / 2; }
+  function focusMarks(ms){
+    const b = bboxN(ms); if(!b) return fit();
+    const bw = Math.max((b.x1 - b.x0) * iw, iw * 0.06), bh = Math.max((b.y1 - b.y0) * ih, ih * 0.06);
+    s = clampS(Math.max(fitS, Math.min(W / (bw * 3), H / (bh * 3))));
+    tx = W / 2 - (b.x0 + b.x1) / 2 * iw * s; ty = H / 2 - (b.y0 + b.y1) / 2 * ih * s;
+  }
+  function schedule(){ if(!raf) raf = requestAnimationFrame(paint); }
+  let g = null;
+  function previewRect(a, b){ return {t: 'r', p: [nrm([Math.min(a[0], b[0]), Math.min(a[1], b[1])]), nrm([Math.max(a[0], b[0]), Math.max(a[1], b[1])])]}; }
+  function paint(){
+    raf = 0; if(!node.isConnected) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = bg; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * tx, dpr * ty); ctx.imageSmoothingEnabled = true;
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, iw, ih); ctx.drawImage(img, 0, 0, iw, ih);
+    if(u.showInk || phase === 'ink'){
+      drawInk(ctx, strokes);
+      if(g && g.kind === 'ink') drawInk(ctx, [g.snapped ? {...g.st, ...g.snapped} : {...g.st, k: 'free', p: g.pts.flat()}]);
+    }
+    if(u.showMarks || phase !== 'ink' || !work){
+      for(const it of planItems(o, dr.id)){
+        if(draft && draft.id && it.kind === draft.kind && it.ref.id === draft.id) continue;
+        paintPrims(ctx, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {faint: phase === 'mark'}));
+      }
+    }
+    if(phase === 'mark'){
+      let ms = draft.marks;
+      if(g && g.kind === 'rect') ms = [previewRect(g.a, g.b)];
+      if(g && g.kind === 'place' && g.cur) ms = [{t: 'p', p: [nrm(g.cur)]}];
+      paintPrims(ctx, itemPrims(draft.kind, ms, draft.label, dr));
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const T = target();
+    if(T && !(g && (g.kind === 'rect' || g.kind === 'place'))) drawHandles(T.marks[T.mi]);
+    if(g && g.kind === 'erase' && g.cur){
+      ctx.beginPath(); ctx.arc(g.cur.x, g.cur.y, 12, 0, Math.PI * 2);
+      ctx.lineWidth = 1.5; ctx.strokeStyle = '#56636d'; ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fill(); ctx.stroke();
+    }
+  }
+  function drawHandles(m){
+    if(!m) return;
+    ctx.save(); ctx.strokeStyle = COL.axis; ctx.lineWidth = 1.5;
+    if(m.t === 'r'){
+      const r = rectPx(m, dr), [x0, y0] = toScr(r.x0, r.y0), [x1, y1] = toScr(r.x1, r.y1);
+      ctx.setLineDash([5, 4]); ctx.strokeRect(x0 - 5, y0 - 5, x1 - x0 + 10, y1 - y0 + 10); ctx.setLineDash([]);
+      for(const [x, y] of [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]){ ctx.fillStyle = '#fff'; ctx.fillRect(x - 7, y - 7, 14, 14); ctx.strokeRect(x - 7, y - 7, 14, 14); }
+      if(m.lab){ const [lx, ly] = toScr(m.lab[0] * iw, m.lab[1] * ih); ctx.beginPath(); ctx.arc(lx, ly, 9, 0, Math.PI * 2); ctx.fillStyle = 'rgba(29,79,122,.22)'; ctx.fill(); ctx.stroke(); }
+    } else {
+      const pts = m.p.map(q => toScr(q[0] * iw, q[1] * ih)), b = bboxPts(pts);
+      ctx.setLineDash([5, 4]); ctx.strokeRect(b.x0 - 14, b.y0 - 14, b.x1 - b.x0 + 28, b.y1 - b.y0 + 28); ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  /* --- попадание по отметкам и ручкам --- */
+  function labelBoxScr(m, label){
+    if(m.t !== 'r' || !m.lab) return null;
+    const gb = leaderGeom(rectPx(m, dr), [m.lab[0] * iw, m.lab[1] * ih], label, M).box;
+    const [x0, y0] = toScr(gb.x0, gb.y0), [x1, y1] = toScr(gb.x1, gb.y1);
+    return {x0, y0, x1, y1};
+  }
+  function hitMark(p){
+    let best = null, bs = Infinity;
+    for(const it of planItems(o, dr.id)){
+      if(draft && draft.id && it.kind === draft.kind && it.ref.id === draft.id) continue;
+      it.ref.plan.m.forEach((m, mi) => {
+        let sc = Infinity;
+        if(m.t === 'r'){
+          const r = rectPx(m, dr), [x0, y0] = toScr(r.x0, r.y0), [x1, y1] = toScr(r.x1, r.y1);
+          if(p.x >= x0 - 10 && p.x <= x1 + 10 && p.y >= y0 - 10 && p.y <= y1 + 10) sc = 5 + Math.sqrt((x1 - x0) * (y1 - y0)) / 100;
+          const lb = labelBoxScr(m, it.label);
+          if(lb && p.x >= lb.x0 - 8 && p.x <= lb.x1 + 8 && p.y >= lb.y0 - 8 && p.y <= lb.y1 + 8) sc = 0;
+        } else if(m.t === 'p'){
+          const [x, y] = toScr(m.p[0][0] * iw, m.p[0][1] * ih), d = Math.hypot(p.x - x, p.y - y); if(d < 24) sc = d;
+        } else {
+          const pts = m.p.map(q => toScr(q[0] * iw, q[1] * ih)), d = distPolyline(p.x, p.y, pts, m.t === 'a');
+          if(d < 14) sc = d; else if(m.t === 'a' && pointInPoly(p.x, p.y, pts)) sc = 20;
+        }
+        if(sc < bs){ bs = sc; best = {it, mi}; }
+      });
+    }
+    return best;
+  }
+  function handleAt(p){
+    const T = target(); if(!T) return null;
+    const m = T.marks[T.mi]; if(!m) return null;
+    if(m.t === 'r'){
+      const r = rectPx(m, dr);
+      if(m.lab){ const [lx, ly] = toScr(m.lab[0] * iw, m.lab[1] * ih); if(Math.hypot(p.x - lx, p.y - ly) < 20) return {h: 'lab'}; }
+      const cs = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]].map(([x, y]) => toScr(x, y));
+      for(let i = 0; i < 4; i++) if(Math.hypot(p.x - cs[i][0], p.y - cs[i][1]) < 20) return {h: 'c', i};
+      const lb = labelBoxScr(m, T.label);
+      if(lb && p.x >= lb.x0 - 6 && p.x <= lb.x1 + 6 && p.y >= lb.y0 - 6 && p.y <= lb.y1 + 6) return {h: 'lab'};
+      if(p.x >= cs[0][0] - 8 && p.x <= cs[2][0] + 8 && p.y >= cs[0][1] - 8 && p.y <= cs[2][1] + 8) return {h: 'move'};
+      return null;
+    }
+    const pts = m.p.map(q => toScr(q[0] * iw, q[1] * ih));
+    if(m.t === 'p') return Math.hypot(p.x - pts[0][0], p.y - pts[0][1]) < 26 ? {h: 'move'} : null;
+    return distPolyline(p.x, p.y, pts, m.t === 'a') < 16 || (m.t === 'a' && pointInPoly(p.x, p.y, pts)) ? {h: 'move'} : null;
+  }
+  function applyEdit(gg, curP){
+    const T = target(); if(!T) return;
+    const m = T.marks[T.mi], o0 = gg.orig, dx = curP[0] - gg.start[0], dy = curP[1] - gg.start[1];
+    const sh = q => [round5(Math.min(1, Math.max(0, q[0] + dx / iw))), round5(Math.min(1, Math.max(0, q[1] + dy / ih)))];
+    if(gg.h.h === 'move'){ m.p = o0.p.map(sh); if(o0.lab) m.lab = sh(o0.lab); }
+    else if(gg.h.h === 'lab'){ m.lab = sh(o0.lab); }
+    else if(gg.h.h === 'c'){
+      const r = rectPx(o0, dr), cs = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];
+      const i = gg.h.i, opp = cs[(i + 2) % 4], c = [cs[i][0] + dx, cs[i][1] + dy];
+      let x0 = Math.min(c[0], opp[0]), x1 = Math.max(c[0], opp[0]), y0 = Math.min(c[1], opp[1]), y1 = Math.max(c[1], opp[1]);
+      if(x1 - x0 < M.minSide) x1 = x0 + M.minSide;
+      if(y1 - y0 < M.minSide) y1 = y0 + M.minSide;
+      m.p = [nrm([x0, y0]), nrm([x1, y1])];
+    }
+  }
+  function tapAdjust(p){
+    if(phase === 'select'){
+      const hit = hitMark(p);
+      if(hit && !(hit.it.ref === sel.it.ref && hit.mi === sel.mi)){ startSelect(hit); return; }
+    }
+    const T = target(); if(!T) return;
+    const m = T.marks[T.mi]; if(!m) return;
+    if(m.t === 'r'){ m.lab = nrm(toImg(p)); commitEdit(); }
+    else if(m.t === 'p'){ m.p = [nrm(toImg(p))]; commitEdit(); }
+  }
+  function finishRect(gg, p){
+    let r;
+    if(Math.hypot(p.x - gg.x0, p.y - gg.y0) < 8){
+      const hs = M.tapSide / 2; r = {x0: gg.a[0] - hs, y0: gg.a[1] - hs, x1: gg.a[0] + hs, y1: gg.a[1] + hs};
+    } else {
+      const b = toImg(p);
+      r = {x0: Math.min(gg.a[0], b[0]), y0: Math.min(gg.a[1], b[1]), x1: Math.max(gg.a[0], b[0]), y1: Math.max(gg.a[1], b[1])};
+      if(r.x1 - r.x0 < M.minSide){ const c = (r.x0 + r.x1) / 2; r.x0 = c - M.minSide / 2; r.x1 = c + M.minSide / 2; }
+      if(r.y1 - r.y0 < M.minSide){ const c = (r.y0 + r.y1) / 2; r.y0 = c - M.minSide / 2; r.y1 = c + M.minSide / 2; }
+    }
+    r = {x0: Math.max(0, r.x0), y0: Math.max(0, r.y0), x1: Math.min(iw, r.x1), y1: Math.min(ih, r.y1)};
+    draft.marks = [{t: 'r', p: [nrm([r.x0, r.y0]), nrm([r.x1, r.y1])], lab: nrm(dirPoint(r, autoDir(r)))}];
+    draft.step = 'adjust'; drawFoot(); schedule();
+  }
+  function openItem(it){ flushInk(); if(it.kind === 'defect') defectForm(it.ref.id); else beaconDetail(it.ref.id); }
+
+  /* --- записи: перо, ластик, текст --- */
+  function trySnap(gg){ if(g !== gg || gg.snapped) return; const shp = recognize(gg.pts, s); if(shp){ gg.snapped = shp; schedule(); } }
+  function eraseAt(p){
+    const [x, y] = toImg(p), r = 12 / s; let changed = false; const out = [];
+    for(const st of strokes){
+      if(!hitStroke(st, x, y, r)){ out.push(st); continue; }
+      changed = true;
+      if(u.eraser === 'part' && st.k !== 'text') out.push(...splitStroke(st, x, y, r));
+    }
+    if(changed){ strokes = out; g.changed = true; }
+    g.cur = p; schedule();
+  }
+  function roundSt(st){
+    const r = v => Math.round(v * 10) / 10;
+    if(st.p) st.p = st.p.map(r);
+    if(st.e) st.e = [r(st.e[0]), r(st.e[1]), r(st.e[2]), r(st.e[3]), Math.round(st.e[4] * 1e4) / 1e4];
+    st.w = Math.round(st.w * 100) / 100;
+    return st;
+  }
+
+  /* --- указатели: перо / палец / мышь --- */
+  const ptrs = new Map(); let pinch = null, locked = false, penDown = 0;
+  const pos = e => { const r = cv.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top}; };
+  function begin(e, p){
+    const base = {id: e.pointerId, x0: p.x, y0: p.y, t0: Date.now(), moved: false};
+    const touchNav = u.stylus && e.pointerType === 'touch';
+    if(phase === 'mark' || phase === 'select'){
+      if(touchNav) return {...base, kind: 'pan', tx, ty, tapSel: phase === 'select'};
+      if(phase === 'mark' && draft.step === 'draw') return draft.kind === 'beacon' ? {...base, kind: 'place', cur: toImg(p)} : {...base, kind: 'rect', a: toImg(p), b: toImg(p)};
+      const hh = handleAt(p);
+      if(hh){ const T = target(); return {...base, kind: 'edit', h: hh, orig: clone(T.marks[T.mi]), start: toImg(p)}; }
+      return {...base, kind: 'tap', tx, ty};
+    }
+    if(u.tool === 'hand' || touchNav) return {...base, kind: 'pan', tx, ty, tapSel: true};
+    if(u.tool === 'eraser'){ const gg = {...base, kind: 'erase', before: strokes, changed: false}; g = gg; eraseAt(p); return gg; }
+    if(u.tool === 'text') return {...base, kind: 'text'};
+    const t = u.tool, gg = {...base, kind: 'ink', st: {t, c: u.color[t], w: INK_TOOLS[t].widths[u.width[t]] / s}, pts: [toImg(p)], anchor: p, snapped: null};
+    gg.timer = setTimeout(() => trySnap(gg), 450);
+    return gg;
+  }
+  function moveG(e, p){
+    if(Math.hypot(p.x - g.x0, p.y - g.y0) > 6) g.moved = true;
+    if(g.kind === 'tap' && g.moved) g.kind = 'pan';
+    if(g.kind === 'pan'){ if(g.moved){ tx = g.tx + p.x - g.x0; ty = g.ty + p.y - g.y0; schedule(); } return; }
+    if(g.kind === 'rect'){ g.b = toImg(p); schedule(); return; }
+    if(g.kind === 'place'){ g.cur = toImg(p); schedule(); return; }
+    if(g.kind === 'edit'){ applyEdit(g, toImg(p)); schedule(); return; }
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : []; const list = evs.length ? evs : [e];
+    if(g.kind === 'erase'){ for(const ev of list) eraseAt(pos(ev)); return; }
+    if(g.kind !== 'ink') return;
+    for(const ev of list){
+      const q = pos(ev);
+      if(g.snapped){
+        if(g.snapped.k === 'line'){ const a = [g.snapped.p[0], g.snapped.p[1]], z = snapAngle(a, toImg(q)); g.snapped = {k: 'line', p: [a[0], a[1], z[0], z[1]]}; }
+        continue;
+      }
+      const ip = toImg(q), l = g.pts[g.pts.length - 1];
+      if(Math.hypot(ip[0] - l[0], ip[1] - l[1]) * s >= 1) g.pts.push(ip);
+    }
+    if(Math.hypot(p.x - g.anchor.x, p.y - g.anchor.y) > 3){
+      g.anchor = p; clearTimeout(g.timer);
+      if(!g.snapped){ const gg = g; g.timer = setTimeout(() => trySnap(gg), 450); }
+    }
+    schedule();
+  }
+  function cancelG(gg){
+    if(!gg) return;
+    if(gg.kind === 'ink') clearTimeout(gg.timer);
+    if(gg.kind === 'erase' && gg.changed) strokes = gg.before;
+    if(gg.kind === 'edit'){ const T = target(); if(T && T.marks[T.mi]) T.marks[T.mi] = gg.orig; }
+  }
+  async function endG(gg, p, cancel){
+    if(gg.kind === 'ink') clearTimeout(gg.timer);
+    if(cancel){ cancelG(gg); schedule(); return; }
+    if(gg.kind === 'pan'){
+      if(!gg.moved && Date.now() - gg.t0 < 600 && gg.tapSel){
+        const hit = hitMark(p);
+        if(hit && !(sel && hit.it.ref === sel.it.ref && hit.mi === sel.mi)) startSelect(hit);
+      }
+      return;
+    }
+    if(gg.kind === 'tap'){ tapAdjust(p); return; }
+    if(gg.kind === 'rect'){ finishRect(gg, p); return; }
+    if(gg.kind === 'place'){ draft.marks = [{t: 'p', p: [nrm(toImg(p))]}]; draft.step = 'adjust'; drawFoot(); schedule(); return; }
+    if(gg.kind === 'edit'){ if(gg.moved) commitEdit(); else schedule(); return; }
+    if(gg.kind === 'erase'){ if(gg.changed){ undoS.push(gg.before); redoS = []; persist(); drawFoot(); } gg.cur = null; schedule(); return; }
+    if(gg.kind === 'text'){
+      if(gg.moved) return;
+      const [x, y] = toImg(p);
+      const txt = await dialog({message: 'Текст на листе (например, размер или пометка)', input: true, ok: 'Добавить'});
+      if(txt && txt.trim()) commitInk([...strokes, roundSt({t: 'text', k: 'text', c: u.color.text, x, y, txt: txt.trim(), fs: TEXT_SIZES[u.textSize] / s, w: 0})]);
+      return;
+    }
+    if(gg.kind === 'ink'){
+      let st;
+      if(gg.snapped) st = {...gg.st, ...gg.snapped};
+      else {
+        const line = u.straight ? asLine(gg.pts, s, true) : null;
+        st = line ? {...gg.st, ...line} : {...gg.st, k: 'free', p: (gg.pts.length > 2 ? rdp(gg.pts, 0.4 / s) : gg.pts).flat()};
+      }
+      commitInk([...strokes, roundSt(st)]);
+    }
+  }
+  cv.addEventListener('pointerdown', e => {
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
+    if(e.pointerType === 'pen' && !u.stylus){
+      u.stylus = true; save(); drawFoot();
+      toast('Стилус подключён: рисует перо, пальцы двигают лист. Переключается в меню «…»');
+    }
+    if(e.pointerType === 'touch' && penDown) return; // ладонь при письме
+    closePop();
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+    const p = pos(e);
+    if(e.pointerType === 'pen'){
+      penDown++;
+      for(const [id, q] of [...ptrs]) if(q.type === 'touch') ptrs.delete(id);
+      pinch = null; locked = false; if(g && g.kind === 'pan') g = null;
+    }
+    ptrs.set(e.pointerId, {x: p.x, y: p.y, type: e.pointerType});
+    if(ptrs.size === 2 && e.pointerType !== 'pen'){
+      cancelG(g); g = null; locked = true;
+      const [a, b] = [...ptrs.values()];
+      pinch = {d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, s, tx, ty};
+      schedule(); return;
+    }
+    if(ptrs.size > 2 || g) return;
+    locked = false; g = begin(e, p); schedule();
+  });
+  cv.addEventListener('pointermove', e => {
+    if(!ptrs.has(e.pointerId)) return;
+    const p = pos(e); ptrs.set(e.pointerId, {x: p.x, y: p.y, type: e.pointerType});
+    if(pinch && ptrs.size >= 2){
+      const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y) || 1, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const ix = (pinch.mx - pinch.tx) / pinch.s, iy = (pinch.my - pinch.ty) / pinch.s;
+      s = clampS(pinch.s * d / pinch.d); tx = mx - ix * s; ty = my - iy * s; schedule(); return;
+    }
+    if(locked || !g || g.id !== e.pointerId) return;
+    moveG(e, p);
+  });
+  const up = e => {
+    if(!ptrs.has(e.pointerId)) return;
+    ptrs.delete(e.pointerId);
+    if(e.pointerType === 'pen') penDown = Math.max(0, penDown - 1);
+    if(pinch){ if(ptrs.size < 2) pinch = null; if(!ptrs.size) locked = false; return; }
+    if(locked){ if(!ptrs.size) locked = false; return; }
+    if(g && g.id === e.pointerId){ const gg = g; g = null; endG(gg, pos(e), e.type === 'pointercancel'); }
+  };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', e => {
+    e.preventDefault(); const p = pos(e), ix = (p.x - tx) / s, iy = (p.y - ty) / s;
+    s = clampS(s * Math.exp(-e.deltaY * 0.0015)); tx = p.x - ix * s; ty = p.y - iy * s; schedule();
+  }, {passive: false});
+  cv.addEventListener('gesturestart', e => e.preventDefault());
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  const onSaved = () => schedule(), onResize = () => size(true);
+  document.addEventListener('zh-saved', onSaved); window.addEventListener('resize', onResize);
+  let ro = null, lastWH = '';
+  if(window.ResizeObserver){ ro = new ResizeObserver(() => { const r = body.getBoundingClientRect(), k = r.width + 'x' + r.height; if(W && k !== lastWH){ lastWH = k; size(true); } }); ro.observe(body); }
+  node.onClose = () => { flushInk(); if(ro) ro.disconnect(); document.removeEventListener('zh-saved', onSaved); window.removeEventListener('resize', onResize); };
+  requestAnimationFrame(() => {
+    size(false); { const r = body.getBoundingClientRect(); lastWH = r.width + 'x' + r.height; }
+    if(!work && draft && draft.marks.length) focusMarks(draft.marks); else fit();
+    drawFoot(); if(work) toolHint(); schedule();
+  });
+}
+
+
+/* ===================== Чертежи с записями → PDF ===================== */
+function pdfFromJpegs(pages){ // страницы: {jpg, w, h, pw, ph} — pw/ph в пунктах
+  const enc = new TextEncoder(), parts = [], offs = [];
+  let off = 0;
+  const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); off += b.length; };
+  const n = pages.length, total = 3 + n * 3;
+  push('%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n');
+  offs[1] = off; push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  offs[2] = off; push(`2 0 obj\n<< /Type /Pages /Kids [${pages.map((_, i) => `${3 + i * 3} 0 R`).join(' ')}] /Count ${n} >>\nendobj\n`);
+  pages.forEach((pg, i) => {
+    const P = 3 + i * 3, I = P + 1, C = P + 2;
+    const k = 1190.55 / Math.max(pg.w, pg.h), pw = +(pg.pw || pg.w * k).toFixed(2), ph = +(pg.ph || pg.h * k).toFixed(2);
+    offs[P] = off; push(`${P} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 ${I} 0 R >> >> /Contents ${C} 0 R >>\nendobj\n`);
+    offs[I] = off; push(`${I} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pg.w} /Height ${pg.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.jpg.length} >>\nstream\n`);
+    push(pg.jpg); push('\nendstream\nendobj\n');
+    const cs = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    offs[C] = off; push(`${C} 0 obj\n<< /Length ${cs.length} >>\nstream\n${cs}\nendstream\nendobj\n`);
+  });
+  const xref = off;
+  let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+  for(let i = 1; i < total; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  push(x + `trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  const out = new Uint8Array(off); let p = 0;
+  for(const b of parts){ out.set(b, p); p += b.length; }
+  return out;
+}
+function displayCm(pg){
+  const box = pg.getCropBox(), rot = (((pg.getRotation().angle || 0) % 360) + 360) % 360, {x, y, width: w, height: hh} = box;
+  if(rot === 90) return {m: [0, 1, -1, 0, x + w, y], W: hh, H: w};
+  if(rot === 180) return {m: [-1, 0, 0, -1, x + w, y + hh], W: w, H: hh};
+  if(rot === 270) return {m: [0, -1, 1, 0, x, y + hh], W: hh, H: w};
+  return {m: [1, 0, 0, 1, x, y], W: w, H: hh};
+}
+
+function hexRgb(L, hex){ const n = parseInt(String(hex || '#000000').slice(1), 16) || 0; return L.rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); }
+const LAT_LIKE = {А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O', Р: 'P', С: 'C', Т: 'T', Х: 'X', У: 'Y', а: 'a', е: 'e', о: 'o', р: 'p', с: 'c', у: 'y', х: 'x', '№': 'No'};
+function pdfLatin(s){ return String(s).replace(/[А-яЁё№]/g, c => LAT_LIKE[c] || '?'); }
+function pdfPrims(L, pg, prims, k, H, fonts){
+  for(const p of prims){
+    const a = p.alpha ?? 1;
+    if(p.type === 'path'){
+      if(!p.d) continue;
+      const opt = {x: 0, y: H, scale: k, borderLineCap: L.LineCapStyle.Round};
+      if(p.stroke){ opt.borderColor = hexRgb(L, p.stroke); opt.borderWidth = p.w; opt.borderOpacity = a; }
+      if(p.fill){ opt.color = hexRgb(L, p.fill); opt.opacity = a * (p.fillAlpha ?? 1); }
+      if(p.blend) opt.blendMode = L.BlendMode.Multiply;
+      pg.drawSvgPath(p.d, opt);
+    } else if(p.type === 'text'){
+      const font = p.italic ? fonts.it : p.bold ? fonts.bold : fonts.reg, size = p.size * k, str = pdfLatin(p.str);
+      let w; try { w = font.widthOfTextAtSize(str, size); } catch(e) { continue; }
+      pg.drawText(str, {x: p.x * k - (p.align === 'center' ? w / 2 : 0), y: H - p.y * k, size, font, color: hexRgb(L, p.color), opacity: a});
+    }
+  }
+}
+
+async function buildSheetsPdfVector(L, o, drs, opt){
+  const out = await L.PDFDocument.create(), srcCache = new Map(), cx = out.context;
+  const fonts = {reg: await out.embedFont(L.StandardFonts.Helvetica), it: await out.embedFont(L.StandardFonts.HelveticaOblique), bold: await out.embedFont(L.StandardFonts.HelveticaBold)};
+  const OCG = {}, order = [];
+  const ocg = (tag, name) => { if(!OCG[tag]){ OCG[tag] = cx.register(cx.obj({Type: 'OCG', Name: L.PDFHexString.fromText(name)})); order.push(OCG[tag]); } return OCG[tag]; };
+  let i = 0;
+  for(const dr of drs){
+    busy(`PDF: лист ${++i} из ${drs.length}…`);
+    const [wmm, hmm] = pageMM(dr), Wd = wmm * 72 / 25.4, Hd = hmm * 72 / 25.4;
+    let pg, cm;
+    if(dr.src && !opt.bare){
+      let sd = srcCache.get(dr.src);
+      if(!sd){
+        const b = await MEDIA.get(dr.src); if(!b) throw new Error('исходный PDF листа не найден');
+        sd = await L.PDFDocument.load(await b.arrayBuffer(), {ignoreEncryption: true}); srcCache.set(dr.src, sd);
+      }
+      [pg] = await out.copyPages(sd, [dr.page - 1]); out.addPage(pg);
+      cm = displayCm(pg);
+    } else {
+      pg = out.addPage([Wd, Hd]); cm = {m: [1, 0, 0, 1, 0, 0], W: Wd, H: Hd};
+      if(!opt.bare){
+        const jb = await MEDIA.get(dr.id); if(!jb) throw new Error('изображение листа не найдено');
+        pg.drawImage(await out.embedJpg(new Uint8Array(await jb.arrayBuffer())), {x: 0, y: 0, width: Wd, height: Hd});
+      }
+    }
+    const k = cm.W / dr.w, H = cm.H;
+    const res = pg.node.normalizedEntries().Resources;
+    let props = res.lookupMaybe(L.PDFName.of('Properties'), L.PDFDict);
+    if(!props){ props = cx.obj({}); res.set(L.PDFName.of('Properties'), props); }
+    const layer = (tag, name, draw) => {
+      props.set(L.PDFName.of(tag), ocg(tag, name));
+      pg.pushOperators(L.pushGraphicsState(), L.concatTransformationMatrix(...cm.m),
+        L.PDFOperator.of(L.PDFOperatorNames.BeginMarkedContentSequence, [L.PDFName.of('OC'), L.PDFName.of(tag)]));
+      draw();
+      pg.pushOperators(L.endMarkedContent(), L.popGraphicsState());
+    };
+    if(opt.notes){
+      const ink = await loadInk(dr);
+      if(ink.length){
+        const vec = [], rasterTexts = [];
+        for(const st of ink){
+          if(st.k !== 'text'){ const t = INK_TOOLS[st.t] || INK_TOOLS.pen; vec.push({type: 'path', d: inkSvg(st), stroke: st.c, w: st.w, alpha: t.alpha, blend: !!t.mult}); continue; }
+          if(/^[\x20-\x7e°±×–—«»]*$/.test(st.txt.replace(/\n/g, ' '))) String(st.txt).split('\n').forEach((line, li) => vec.push({type: 'text', x: st.x, y: st.y + st.fs * 0.35 + li * st.fs * 1.2, size: st.fs, str: line, color: st.c, bold: true}));
+          else rasterTexts.push(st);
+        }
+        let png = null;
+        if(rasterTexts.length){
+          const f = Math.min(1, Math.sqrt(12e6 / (dr.w * dr.h))), c = document.createElement('canvas');
+          c.width = Math.round(dr.w * f); c.height = Math.round(dr.h * f);
+          const x = c.getContext('2d'); x.setTransform(f, 0, 0, f, 0, 0); drawInk(x, rasterTexts);
+          png = await out.embedPng(new Uint8Array(await (await canvasBlob(c, 'image/png')).arrayBuffer()));
+          c.width = c.height = 0;
+        }
+        layer('OCnotes', 'Полевые записи', () => {
+          pg.pushOperators(L.setLineJoin(L.LineJoinStyle.Round));
+          pdfPrims(L, pg, vec, k, H, fonts);
+          if(png) pg.drawImage(png, {x: 0, y: 0, width: cm.W, height: cm.H});
+        });
+      }
+    }
+    const items = planItems(o, dr.id);
+    for(const [kind, tag, name, on] of [['defect', 'OCdef', 'Дефекты', opt.defects], ['beacon', 'OCbeac', 'Маяки', opt.beacons]]){
+      const its = items.filter(it => it.kind === kind);
+      if(!on || !its.length) continue;
+      layer(tag, name, () => { for(const it of its) pdfPrims(L, pg, itemPrims(it.kind, it.ref.plan.m, it.label, dr), k, H, fonts); });
+    }
+  }
+  if(order.length) out.catalog.set(L.PDFName.of('OCProperties'), cx.obj({OCGs: order, D: {Order: order, ON: order, BaseState: 'ON'}}));
+  busy('PDF: упаковка…');
+  return out.save();
+}
+
+async function buildSheetsPdfRaster(o, drs, opt){
+  const pages = []; let i = 0;
+  for(const dr of drs){
+    busy(`PDF: лист ${++i} из ${drs.length}…`);
+    const c = await renderMap(dr, o, 4200, opt.notes ? await loadInk(dr) : null, {defects: opt.defects, beacons: opt.beacons});
+    const [wmm, hmm] = pageMM(dr);
+    pages.push({jpg: await canvasU8(c, 0.9), w: c.width, h: c.height, pw: wmm * 72 / 25.4, ph: hmm * 72 / 25.4});
+    c.width = c.height = 0;
+  }
+  busy('PDF: упаковка…');
+  return pdfFromJpegs(pages);
+}
+
+async function exportSheetsPdf(drs, opt){
+  const o = cur(); if(!o || !drs.length) return;
+  let u8 = null, note = '';
+  try {
+    busy('Готовлю PDF…');
+    let L = null;
+    try { if(!window.PDFLib) await loadScript(BUILD.pdflib); L = window.PDFLib || null; } catch(e) { L = null; }
+    if(L){ try { u8 = await buildSheetsPdfVector(L, o, drs, opt); } catch(e) { note = e.message; u8 = null; } }
+    if(!u8){ u8 = await buildSheetsPdfRaster(o, drs, opt); note = note || 'модуль сборки PDF недоступен'; }
+    busy(null);
+    if(note) toast('Лист собран картинкой, без слоёв: ' + note, true);
+    const suffix = opt.notes && (opt.defects || opt.beacons) ? 'слои' : opt.notes ? 'записи' : 'дефекты';
+    offerFile(drs.length === 1 ? `${safeName(drs[0].name)} — ${suffix} ${today()}.pdf` : `Чертежи_${safeName(o.name)}_${suffix}_${today()}.pdf`, u8, 'application/pdf', {replace: true});
+  } catch(e) { busy(null); toast('PDF не сформировался: ' + e.message, true); }
+}
+
+function sheetsPdfDialog(drs){
+  const o = cur(); if(!o || !drs.length){ toast('Чертежей нет', true); return; }
+  const hasInk = drs.some(d => d.inkN), hasMarks = drs.some(d => planItems(o, d.id).length);
+  const body = h(`<div>
+    <p style="margin-top:0">${drs.length === 1 ? `Лист «${esc(drs[0].name)}»` : `Все листы объекта: ${drs.length}`}. Каждый лист выгружается в своём исходном формате.</p>
+    <div class="small muted" style="margin-bottom:6px">${drs.map(d => `${esc(d.name)} — ${esc(fmtLabel(d))}${d.src ? '' : ' (из изображения)'}`).join('<br>')}</div>
+    <div class="lbl" style="margin-top:12px">Что выгрузить</div>
+    <label class="check"><input type="radio" name="pdfwhat" value="all" checked> Всё сразу — отдельными слоями</label>
+    <label class="check"><input type="radio" name="pdfwhat" value="defects"> Только дефекты и маяки${hasMarks ? '' : ' — отметок пока нет'}</label>
+    <label class="check"><input type="radio" name="pdfwhat" value="notes"> Только полевые записи${hasInk ? '' : ' — записей пока нет'}</label>
+    <label class="check"><input type="checkbox" data-bare> Без подложки чертежа — только отметки и записи</label>
+    <p class="hint">В PDF отметки и записи лежат на слоях «Дефекты», «Маяки», «Полевые записи»: в Acrobat и при импорте PDF в AutoCAD их можно включать и выключать по отдельности. «Без подложки» удобно накладывать на исходный чертёж.</p></div>`);
+  openSheet('Листы в PDF', body, btn('Сформировать', 'primary', () => {
+    const what = (body.querySelector('[name="pdfwhat"]:checked') || {}).value || 'all';
+    exportSheetsPdf(drs, {notes: what !== 'defects', defects: what !== 'notes', beacons: what !== 'notes', bare: $('[data-bare]', body).checked});
+  }));
+}
+
+
+/* ===================== Оси ===================== */
+function fixLetters(s){ return String(s).toUpperCase().replace(/[ABCEHKMPTXY]/g, c => LAT2CYR[c] || c); }
+function axisParts(a, kind){
+  const [b, s] = String(a).split('/');
+  let base;
+  if(kind === 'n'){ base = parseFloat(b); if(isNaN(base)) base = 1e6; }
+  else { const i = LET.indexOf(b); base = i >= 0 ? i : 1000 + (b.charCodeAt(0) || 0); }
+  return [base, s === undefined ? -1 : (parseFloat(s) || 0)];
+}
+function cmpAxis(x, y, kind){
+  const [a1, b1] = axisParts(x, kind), [a2, b2] = axisParts(y, kind);
+  return a1 - a2 || b1 - b2 || String(x).localeCompare(String(y));
+}
+function parseAxes(str, kind){
+  let s = String(str || '').replace(/\s*[-–—]\s*/g, '-');
+  if(kind === 'l') s = fixLetters(s);
+  const out = [];
+  for(const t of s.split(/[,;\s]+/).filter(Boolean)){
+    const m = t.match(/^([^-]+)-([^-]+)$/);
+    if(m){
+      const a = m[1], b = m[2];
+      if(kind === 'n' && /^\d+$/.test(a) && /^\d+$/.test(b)){
+        let i = +a, j = +b; if(i > j) [i, j] = [j, i];
+        if(j - i <= 300){ for(let k = i; k <= j; k++) out.push(String(k)); continue; }
+      }
+      if(kind === 'l'){
+        const i = LET.indexOf(a), j = LET.indexOf(b);
+        if(i >= 0 && j >= 0){ for(let k = Math.min(i, j); k <= Math.max(i, j); k++) out.push(LET[k]); continue; }
+      }
+    }
+    out.push(t);
+  }
+  return [...new Set(out)].sort((x, y) => cmpAxis(x, y, kind));
+}
+function rangeStr(r){ if(!r || !r.length) return ''; if(r.length === 1 || r[0] === r[1]) return r[0]; return r[0] + '-' + r[1]; }
+function axesStr(ax){
+  const n = rangeStr(ax && ax.n), l = rangeStr(ax && ax.l);
+  if(n && l) return `В/о ${n}//${l}`;
+  if(n) return `В/о ${n}`;
+  if(l) return `В/о ${l}`;
+  return '';
+}
+function axesOf(item){ return String(item.axesText || '').trim() || axesStr(item.axes); }
+function locStr(item){ return [axesOf(item), item.locText].filter(Boolean).join(', '); }
+function paramsText(d){
+  const p = [];
+  if(d.w) p.push(`ширина раскрытия ${d.w} мм`); if(d.len) p.push(`длина ${d.len} м`); if(d.depth) p.push(`глубина ${d.depth} мм`);
+  if(d.area) p.push(`площадь ${d.area} м²`); if(d.qty) p.push(`${d.qty} шт.`);
+  const s = p.join(', ');
+  return s ? s[0].toUpperCase() + s.slice(1) : '';
+}
+
+function mountAxisPicker(box, f, o, onChange){
+  const ax = f.axes, axN = parseAxes(o.axesN, 'n'), axL = parseAxes(o.axesL, 'l');
+  function chips(list, kind){
+    const sel = ax[kind] || [], idx = sel.map(a => list.indexOf(a));
+    let lo = -1, hi = -1;
+    if(idx.length === 2 && idx[0] >= 0 && idx[1] >= 0){ lo = Math.min(...idx); hi = Math.max(...idx); }
+    return list.map((a, i) => {
+      let c = 'ax' + (a.length > 2 ? ' long' : '');
+      if(sel.includes(a)) c += ' on'; else if(i > lo && i < hi) c += ' mid';
+      return `<button type="button" class="${c}" data-k="${kind}" data-a="${esc(a)}" aria-pressed="${sel.includes(a)}">${esc(a)}</button>`;
+    }).join('');
+  }
+  function prev(){
+    const s = axesOf(f), manual = String(f.axesText || '').trim();
+    $('.ax-prev', box).innerHTML = s ? `<b>${esc(s)}</b>${manual ? '<span class="small muted">вписано вручную</span>' : '<button type="button" class="link" data-clear>Сбросить</button>'}` : '<span class="none">Нажмите одну ось или две — получится диапазон</span>';
+  }
+  function draw(){
+    box.innerHTML = `
+      <div class="ax-prev"></div>
+      ${axN.length ? `<div class="ax-row-lbl">Цифровые оси</div><div class="ax-grid">${chips(axN, 'n')}</div>` : ''}
+      ${axL.length ? `<div class="ax-row-lbl">Буквенные оси</div><div class="ax-grid">${chips(axL, 'l')}</div>` : ''}
+      ${!axN.length && !axL.length ? '<p class="hint">Оси объекта не заданы. Укажите их в разделе «Объект» или впишите вручную.</p>' : ''}
+      <input class="inp" data-axtext value="${esc(f.axesText || '')}" placeholder="Или впишите вручную: В/о 20-22//А/2-Г" autocomplete="off" style="margin-top:10px">`;
+    prev();
+  }
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    if(b.hasAttribute('data-clear')){ ax.n = []; ax.l = []; draw(); onChange(); return; }
+    const k = b.dataset.k, a = b.dataset.a; if(!k) return;
+    let s = ax[k] || [];
+    if(s.length === 0) s = [a];
+    else if(s.length === 1) s = s[0] === a ? [] : [s[0], a].sort((x, y) => cmpAxis(x, y, k));
+    else s = [a];
+    ax[k] = s;
+    const ti = $('[data-axtext]', box); const keep = ti ? ti.value : '';
+    draw(); const t2 = $('[data-axtext]', box); if(t2) t2.value = keep;
+    onChange();
+  });
+  box.addEventListener('input', e => { if(e.target.hasAttribute('data-axtext')){ f.axesText = e.target.value; prev(); onChange(); } });
+  draw();
+}
+
+
+/* ===================== Листы (окна поверх) ===================== */
+const stack = []; let skipPop = 0, flushTimer = 0;
+// Запись в истории для каждого окна — чтобы «Назад» на телефоне закрывало окно, а не приложение.
+// Если предыдущий шаг «назад» ещё не завершился, новая запись откладывается до его завершения.
+function pushEntry(){ if(FRAMED) return false; try { history.pushState({sheet: stack.length}, ''); return true; } catch(e) { return false; } }
+function flushPending(){
+  clearTimeout(flushTimer);
+  for(const n of stack) if(n.pushed === 'pending') n.pushed = pushEntry();
+}
+function openSheet(title, body, foot, opts = {}){
+  const node = h(`<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="sheet-head"><button type="button" class="icon-btn" data-close aria-label="Закрыть">✕</button><h2>${esc(title)}</h2><span class="sheet-spacer"></span></div>
+    <div class="sheet-body"></div><div class="sheet-foot"></div></div>`);
+  if(opts.cls) node.classList.add(opts.cls);
+  node.querySelector('.sheet-body').append(body);
+  if(foot) node.querySelector('.sheet-foot').append(...(Array.isArray(foot) ? foot : [foot]));
+  else node.querySelector('.sheet-foot').remove();
+  node.querySelector('[data-close]').onclick = requestClose;
+  node.trackDirty = !!opts.trackDirty; node.dirty = false;
+  if(node.trackDirty) node.addEventListener('input', () => { node.dirty = true; });
+  if(opts.replace && stack.length){
+    const old = stack.pop(); old.remove(); node.pushed = old.pushed;
+    if(old.onClose) try { old.onClose(); } catch(e) {}
+    document.body.append(node); stack.push(node);
+  } else {
+    document.body.append(node); stack.push(node);
+    if(skipPop > 0){ node.pushed = 'pending'; clearTimeout(flushTimer); flushTimer = setTimeout(() => { skipPop = 0; flushPending(); }, 800); }
+    else node.pushed = pushEntry();
+  }
+  document.body.classList.add('noscroll');
+  return node;
+}
+function closeTop(viaPop, count = 1){
+  let pushed = 0;
+  for(let i = 0; i < count; i++){
+    const node = stack.pop(); if(!node) break;
+    node.remove(); if(node.pushed === true) pushed++;
+    if(node.onClose) try { node.onClose(); } catch(e) {}
+  }
+  if(!stack.length) document.body.classList.remove('noscroll');
+  if(!viaPop && pushed){ skipPop++; try { history.go(-pushed); } catch(e) { skipPop--; } }
+}
+const DISCARD = 'Закрыть без сохранения? Введённое пропадёт.';
+async function requestClose(){
+  const node = stack[stack.length - 1];
+  if(node && node.beforeClose && node.beforeClose()) return;
+  if(node && node.dirty && !(await ask(DISCARD, {ok: 'Закрыть', danger: true}))) return;
+  if(stack[stack.length - 1] === node) closeTop(false);
+}
+window.addEventListener('popstate', async () => {
+  if(skipPop > 0){ skipPop--; if(!skipPop) flushPending(); return; }
+  const node = stack[stack.length - 1]; if(!node) return;
+  if(node.dirty){
+    node.pushed = pushEntry();
+    if(await ask(DISCARD, {ok: 'Закрыть', danger: true}) && stack[stack.length - 1] === node) closeTop(false);
+    return;
+  }
+  closeTop(true);
+});
+function btn(label, cls, onClick){ const b = h(`<button type="button" class="btn ${cls || ''}">${esc(label)}</button>`); b.onclick = onClick; return b; }
+
+/* ===================== Общие поля места ===================== */
+function usedValues(o, field){
+  const seen = new Set(), out = [];
+  const items = [...o.defects, ...o.beacons].sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  for(const it of items){ const v = (it[field] || '').trim(); if(v && !seen.has(v)){ seen.add(v); out.push(v); } }
+  return out;
+}
+function constrChips(f){
+  const list = db.constructions.slice();
+  if(f.construction && !list.includes(f.construction)) list.push(f.construction);
+  return list.map(c => `<button type="button" class="chip${f.construction === c ? ' on' : ''}" data-c="${esc(c)}">${esc(c)}</button>`).join('')
+    + `<button type="button" class="chip chip-add" data-c-own>+ Своя</button>`;
+}
+function placeFieldsHTML(f, o, prefix){
+  const floors = usedValues(o, 'floor').slice(0, 8), elems = usedValues(o, 'element').slice(0, 40);
+  return `
+    <div class="field"><div class="lbl">Оси</div><div data-axes></div></div>
+    <div class="field"><div class="lbl">Место на чертеже</div><div data-plan></div></div>
+    <div class="field"><label for="${prefix}-lt">Уточнение места</label>
+      <input id="${prefix}-lt" class="inp" data-f="locText" value="${esc(f.locText)}" placeholder="низ плиты, наружная грань, у проёма…" autocomplete="off"></div>
+    <div class="field"><label for="${prefix}-fl">Этаж, отметка</label>
+      <input id="${prefix}-fl" class="inp" data-f="floor" value="${esc(f.floor)}" placeholder="Цокольный этаж, Кровля, отм. +3.300" autocomplete="off">
+      <div class="hint">По этому полю строки ведомости группируются: «Цокольный этаж», «Кровля»…</div>
+      ${floors.length ? `<div class="chips" style="margin-top:8px">${floors.map(v => `<button type="button" class="chip" data-floor="${esc(v)}">${esc(v)}</button>`).join('')}</div>` : ''}</div>
+    <div class="field"><div class="lbl">Конструкция</div>
+      <div class="chips" data-constr>${constrChips(f)}</div></div>
+    <div class="field"><label for="${prefix}-el">Элемент, марка</label>
+      <input id="${prefix}-el" class="inp" data-f="element" value="${esc(f.element)}" placeholder="Пм-3, Б-2, простенок…" list="${prefix}-ell" autocomplete="off">
+      <datalist id="${prefix}-ell">${elems.map(v => `<option value="${esc(v)}">`).join('')}</datalist></div>`;
+}
+
+function wirePlaceFields(body, f, o, ref, self){
+  const dirty = () => { if(ref.node) ref.node.dirty = true; };
+  mountAxisPicker($('[data-axes]', body), f, o, dirty);
+  mountPlanField($('[data-plan]', body), f, o, dirty, self);
+  body.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.f; if(k) f[k] = e.target.value; });
+  body.addEventListener('click', async e => {
+    const fl = e.target.closest('[data-floor]');
+    if(fl){ f.floor = fl.dataset.floor; $('[data-f="floor"]', body).value = f.floor; dirty(); return; }
+    const box = $('[data-constr]', body);
+    if(e.target.closest('[data-c-own]')){
+      const v = await dialog({message: 'Своя конструкция', input: true, value: db.constructions.includes(f.construction) ? '' : f.construction, ok: 'Готово'});
+      if(v && v.trim()){ f.construction = v.trim(); box.innerHTML = constrChips(f); dirty(); }
+      return;
+    }
+    const c = e.target.closest('[data-c]');
+    if(c && c.closest('[data-constr]')){
+      f.construction = f.construction === c.dataset.c ? '' : c.dataset.c;
+      box.innerHTML = constrChips(f);
+      dirty();
+    }
+  });
+}
+
+function mountPlanField(box, f, o, dirty, self){
+  async function draw(){
+    const ds = o.drawings;
+    if(!ds.length){
+      box.innerHTML = `<button type="button" class="typebtn" data-add-dr>Загрузить чертёж (PDF или изображение)</button>`;
+      return;
+    }
+    const sel = f.plan && ds.find(d => d.id === f.plan.d);
+    box.innerHTML = `
+      ${ds.length > 1 ? `<div class="chips" style="margin-bottom:8px">${ds.map(d => `<button type="button" class="chip${sel && sel.id === d.id ? ' on' : ''}" data-dr="${d.id}">${esc(d.name)}</button>`).join('')}</div>` : ''}
+      ${sel ? `<div class="plan-prev"><canvas width="600" height="450"></canvas></div>
+        <div class="btn-row" style="margin-top:8px"><button type="button" class="btn small" data-dr="${sel.id}">Изменить отметку</button><button type="button" class="btn small danger" data-clear-dr>Убрать</button></div>`
+      : (ds.length === 1 ? `<button type="button" class="typebtn" data-dr="${ds[0].id}">Отметить на чертеже «${esc(ds[0].name)}»</button>` : '<p class="hint" style="margin:0">Выберите чертёж — откроется разметка.</p>')}`;
+    if(sel){
+      try { await renderCrop($('canvas', box), sel, f.plan.m, self.kind, self.label(), 600, ui().showInk ? await loadInk(sel) : null); }
+      catch(e) { $('.plan-prev', box).innerHTML = `<p class="hint">Не удалось показать фрагмент: ${esc(e.message)}</p>`; }
+    }
+  }
+  box.addEventListener('click', async e => {
+    if(e.target.closest('[data-add-dr]')){ pickFiles('application/pdf,image/*', true, async files => { await importDrawingFiles(files); draw(); }); return; }
+    if(e.target.closest('[data-clear-dr]')){ f.plan = null; dirty(); draw(); return; }
+    const d = e.target.closest('[data-dr]'); if(!d) return;
+    const id = d.dataset.dr, dr = o.drawings.find(x => x.id === id); if(!dr) return;
+    if(f.plan && f.plan.d !== id && f.plan.m.length && !(await ask('Отметка на другом чертеже будет заменена. Продолжить?', {ok: 'Заменить'}))) return;
+    openPlan({drawing: dr, mode: 'edit', marks: f.plan && f.plan.d === id ? clone(f.plan.m) : [],
+      self: {kind: self.kind, id: f.id || null, label: self.label()},
+      onDone: m => { f.plan = m.length ? {d: id, m} : null; dirty(); draw(); }});
+  });
+  draw();
+}
+
+/* ===================== Фото ===================== */
+function mountPics(box, f, ref){
+  function draw(){
+    box.innerHTML = `<div class="pics">${f.pics.map((p, i) => `<button type="button" class="pic" data-pic="${p.id}" aria-label="Фото ${i + 1}"><img alt="" data-src="${p.id}"></button>`).join('')}
+      <label class="pic add"><input type="file" accept="image/*" multiple hidden><span>+ Фото</span></label></div>`;
+    box.querySelectorAll('img[data-src]').forEach(im => mediaURL(im.dataset.src).then(u => { if(u) im.src = u; }).catch(() => {}));
+  }
+  box.addEventListener('change', async e => {
+    if(e.target.type !== 'file') return;
+    const files = [...e.target.files]; e.target.value = '';
+    if(!files.length) return;
+    let n = 0;
+    try {
+      for(const file of files){
+        busy(files.length > 1 ? `Сохраняю фото ${++n} из ${files.length}…` : 'Сохраняю фото…');
+        const r = await savePhoto(file); f.pics.push(r); ref.added.push(r.id);
+      }
+    } catch(err) { toast('Фото не сохранилось: ' + err.message, true); }
+    busy(null); if(ref.node) ref.node.dirty = true; draw();
+  });
+  box.addEventListener('click', e => {
+    const b = e.target.closest('[data-pic]'); if(!b) return;
+    const id = b.dataset.pic;
+    photoViewer(id, `Фото ${f.pics.findIndex(p => p.id === id) + 1}`, () => { f.pics = f.pics.filter(p => p.id !== id); if(ref.node) ref.node.dirty = true; draw(); });
+  });
+  draw();
+}
+function photoViewer(id, title, onDelete){
+  const body = h(`<div><img class="photo-big" alt=""></div>`);
+  mediaURL(id).then(u => { if(u) $('img', body).src = u; });
+  openSheet(title, body, onDelete ? btn('Убрать фото', 'danger', () => { onDelete(); closeTop(false); }) : null);
+}
+
+/* ===================== Дефекты ===================== */
+function blankDefect(){
+  return { axes: {n: [], l: []}, locText: '', floor: '', construction: '', element: '', typeCode: '', typeName: '', descr: '',
+    w: '', len: '', depth: '', area: '', qty: '', sev: '', photos: '', note: '', pics: [], plan: null };
+}
+function paramsStr(d){
+  const p = [];
+  if(d.w) p.push(`a = ${d.w} мм`); if(d.len) p.push(`L = ${d.len} м`); if(d.depth) p.push(`h = ${d.depth} мм`);
+  if(d.area) p.push(`S = ${d.area} м²`); if(d.qty) p.push(`${d.qty} шт.`);
+  return p.join(', ');
+}
+function lastNumTok(s){ const m = String(s || '').match(/(\d+)(?!.*\d)/); return m ? m[1] : null; }
+function nextPhoto(val, last){ const t = lastNumTok(val) || lastNumTok(last); return t ? String(+t + 1).padStart(t.length, '0') : null; }
+function nextDefectNo(o){ return o.defects.reduce((m, d) => Math.max(m, d.no || 0), 0) + 1; }
+
+function defectForm(id, preset, opts = {}){
+  const o = cur(); if(!o) return;
+  const ex = id ? o.defects.find(d => d.id === id) : null;
+  const f = ex ? clone(ex) : Object.assign(blankDefect(), clone(preset || {}));
+  f.pics = f.pics || [];
+  const ref = {added: []};
+  const label = () => String(ex ? ex.no : nextDefectNo(o));
+  const body = h(`<div>
+    ${placeFieldsHTML(f, o, 'd')}
+    <div class="group"><p class="group-title">Дефект</p>
+      <div class="field"><label for="d-tn">Наименование дефекта</label>
+        <div class="combo"><input id="d-tn" class="inp" data-tn value="${esc(f.typeName)}" placeholder="Впишите своё или выберите из справочника" autocomplete="off">
+        <button type="button" class="btn small" data-type>Справочник</button></div>
+        <div class="sugg" data-sugg></div></div>
+      <div class="field"><label for="d-ds">Описание</label>
+        <textarea id="d-ds" class="inp" data-f="descr" placeholder="Характер, направление, развитие">${esc(f.descr)}</textarea></div>
+      <div class="grid3 field">
+        <div class="field"><label for="d-w">a, мм</label><input id="d-w" class="inp" data-f="w" inputmode="decimal" value="${esc(f.w)}"></div>
+        <div class="field"><label for="d-l">L, м</label><input id="d-l" class="inp" data-f="len" inputmode="decimal" value="${esc(f.len)}"></div>
+        <div class="field"><label for="d-h">h, мм</label><input id="d-h" class="inp" data-f="depth" inputmode="decimal" value="${esc(f.depth)}"></div>
+        <div class="field"><label for="d-s">S, м²</label><input id="d-s" class="inp" data-f="area" inputmode="decimal" value="${esc(f.area)}"></div>
+        <div class="field"><label for="d-q">Кол-во, шт.</label><input id="d-q" class="inp" data-f="qty" inputmode="numeric" value="${esc(f.qty)}"></div>
+      </div>
+      <p class="hint" style="margin:-6px 0 14px">a — ширина раскрытия, L — длина, h — глубина, S — площадь.</p>
+      <div class="field"><div class="lbl">Значимость</div>
+        <div class="seg" data-sev>${SEV.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${f.sev === v ? 'on' : ''}${v === 'критический' ? ' critical' : ''}">${l}</button>`).join('')}</div></div>
+    </div>
+    <div class="group"><p class="group-title">Фиксация</p>
+      <div class="field"><div class="lbl">Фото</div><div data-pics></div></div>
+      <div class="field"><label for="d-ph">Номера кадров, если снимаете отдельной камерой</label>
+        <div class="photo-row"><input id="d-ph" class="inp" data-f="photos" value="${esc(f.photos)}" placeholder="0451, 0452 или 451-455" autocomplete="off">
+        <button type="button" class="btn small" data-nextph>+1</button></div>
+        <div class="hint" data-phhint></div></div>
+      <div class="field"><label for="d-nt">Примечание</label>
+        <textarea id="d-nt" class="inp" data-f="note">${esc(f.note)}</textarea></div>
+    </div></div>`);
+
+  const tn = $('[data-tn]', body), sugg = $('[data-sugg]', body);
+  const recentNames = [...new Set(o.defects.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0)).map(d => d.typeName).filter(Boolean))].slice(0, 5);
+  const setType = (name, code) => {
+    f.typeName = name; const c = db.catalog.find(x => x.name === name);
+    f.typeCode = code !== undefined ? code : (c ? c.code : '');
+    tn.value = name; drawSugg(); if(ref.node) ref.node.dirty = true;
+  };
+  function drawSugg(){
+    const q = tn.value.trim().toLowerCase();
+    let list = q ? db.catalog.filter(c => c.name.toLowerCase().includes(q) && c.name !== tn.value.trim()).slice(0, 5).map(c => c.name) : recentNames;
+    const own = q.length > 2 && !db.catalog.some(c => c.name.toLowerCase() === q);
+    sugg.innerHTML = list.map(n => `<button type="button" class="chip" data-sg="${esc(n)}">${esc(n)}</button>`).join('')
+      + (own ? `<button type="button" class="chip chip-add" data-sg-save>+ В справочник</button>` : '');
+  }
+  tn.addEventListener('input', () => { f.typeName = tn.value; const c = db.catalog.find(x => x.name === tn.value.trim()); f.typeCode = c ? c.code : ''; drawSugg(); });
+  sugg.addEventListener('click', e => {
+    const b = e.target.closest('[data-sg]'); if(b){ setType(b.dataset.sg); return; }
+    if(e.target.closest('[data-sg-save]')){
+      const name = tn.value.trim(); if(!name) return;
+      db.catalog.push({code: '', name, group: 'Свои'}); save(); drawSugg(); toast('Добавлено в справочник, группа «Свои»');
+    }
+  });
+  drawSugg();
+  $('[data-type]', body).onclick = () => typePicker(t => setType(t.name, t.code));
+
+  const phInput = $('[data-f="photos"]', body), phHint = $('[data-phhint]', body);
+  const drawPhHint = () => { const n = nextPhoto(phInput.value, o.lastPhoto); phHint.textContent = n ? `+1 добавит ${n}` : 'Последний номер кадра запомнится после сохранения'; };
+  drawPhHint();
+  phInput.addEventListener('input', drawPhHint);
+  $('[data-nextph]', body).onclick = () => {
+    const n = nextPhoto(phInput.value, o.lastPhoto); if(!n){ phInput.focus(); return; }
+    phInput.value = phInput.value.trim() ? phInput.value.trim().replace(/,\s*$/, '') + ', ' + n : n;
+    f.photos = phInput.value; drawPhHint(); if(ref.node) ref.node.dirty = true;
+  };
+  $('[data-sev]', body).addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    f.sev = b.dataset.v;
+    body.querySelectorAll('[data-sev] button').forEach(x => x.classList.toggle('on', x === b));
+    if(ref.node) ref.node.dirty = true;
+  });
+  wirePlaceFields(body, f, o, ref, {kind: 'defect', label});
+  mountPics($('[data-pics]', body), f, ref);
+
+  function commit(again){
+    f.typeName = String(f.typeName || '').trim();
+    if(!f.typeName && !f.descr.trim()){ toast('Впишите наименование дефекта или описание', true); return; }
+    f.updated = Date.now();
+    if(ex){
+      const removed = (ex.pics || []).filter(p => !f.pics.some(q => q.id === p.id));
+      Object.assign(ex, f);
+      removed.forEach(p => MEDIA.del(p.id).catch(() => {}));
+    } else {
+      f.id = uid(); f.created = Date.now(); f.no = nextDefectNo(o);
+      o.defects.push(f);
+    }
+    if(f.photos.trim()) o.lastPhoto = f.photos.trim();
+    if(!save()) return;
+    ref.node.committed = true;
+    render();
+    if(again){
+      defectForm(null, {axes: clone(f.axes), locText: f.locText, floor: f.floor, construction: f.construction, element: f.element}, {replace: true});
+      toast(`Дефект № ${f.no} сохранён, место сохранено`);
+      return;
+    }
+    closeTop(false); toast(`Дефект № ${f.no} сохранён`);
+  }
+  const foot = [];
+  if(ex) foot.push(btn('Удалить', 'danger', async () => {
+    if(!(await ask(`Удалить дефект № ${ex.no} вместе с фото?`, {ok: 'Удалить', danger: true}))) return;
+    o.defects = o.defects.filter(d => d !== ex);
+    [...(ex.pics || []), ...f.pics].forEach(p => MEDIA.del(p.id).catch(() => {}));
+    save(); ref.node.committed = true; closeTop(false); render(); toast('Дефект удалён');
+  }));
+  foot.push(btn('Ещё здесь', '', () => commit(true)));
+  foot.push(btn('Сохранить', 'primary', () => commit(false)));
+  ref.node = openSheet(ex ? `Дефект № ${ex.no}` : 'Новый дефект', body, foot, {trackDirty: true, replace: !!opts.replace});
+  ref.node.onClose = () => { if(!ref.node.committed) ref.added.forEach(i => MEDIA.del(i).catch(() => {})); };
+  if(preset && preset.plan) ref.node.dirty = true;
+}
+
+function typePicker(onPick){
+  const o = cur();
+  const body = h(`<div><input type="search" class="inp" placeholder="Найдите в справочнике или впишите свой вариант" autocomplete="off"><div class="tp-list"></div></div>`);
+  const q = $('input', body), list = $('.tp-list', body);
+  const recent = [...new Set(o.defects.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0)).map(d => d.typeName).filter(Boolean))].slice(0, 6);
+  const item = c => `<button type="button" class="tp-item" data-code="${esc(c.code || '')}" data-name="${esc(c.name)}">${c.code ? `<span class="code">${esc(c.code)}</span>` : ''}<span>${esc(c.name)}</span></button>`;
+  function draw(){
+    const s = q.value.trim().toLowerCase();
+    let html = '';
+    if(!s && recent.length) html += `<div class="tp-grp">Недавние</div><div class="tp-box">` + recent.map(n => item(db.catalog.find(x => x.name === n) || {code: '', name: n})).join('') + `</div>`;
+    const groups = new Map();
+    for(const c of db.catalog){
+      if(s && !(c.name.toLowerCase().includes(s) || String(c.code || '').toLowerCase().includes(s))) continue;
+      const g = c.group || 'Без группы';
+      if(!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(c);
+    }
+    for(const [g, items] of groups) html += `<div class="tp-grp">${esc(g)}</div><div class="tp-box">${items.map(item).join('')}</div>`;
+    if(s) html += `<button type="button" class="btn tp-custom" data-custom>Записать «${esc(q.value.trim())}» как тип</button>`;
+    else if(!groups.size) html += '<p class="muted">Каталог пуст. Заполните его в разделе «Объект».</p>';
+    list.innerHTML = html;
+  }
+  q.addEventListener('input', draw);
+  list.addEventListener('click', e => {
+    if(e.target.closest('[data-custom]')){ onPick({code: '', name: q.value.trim()}); closeTop(false); return; }
+    const b = e.target.closest('.tp-item'); if(!b) return;
+    onPick({code: b.dataset.code, name: b.dataset.name}); closeTop(false);
+  });
+  draw();
+  openSheet('Тип дефекта', body, null);
+}
+
+/* ===================== Маяки ===================== */
+function isBrittle(b){ return BRITTLE.includes(b.kind); }
+function series(b){
+  const pts = [], init = num(b.initial);
+  if(b.installed && (init !== null || isBrittle(b))) pts.push({d: b.installed, v: init !== null ? init : 0, init: true});
+  for(const r of b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)))){
+    let v = num(r.value);
+    if(isBrittle(b)) v = r.state === 'Разрыв' ? v : (v === null ? 0 : v);
+    if(v !== null && r.date) pts.push({d: r.date, v, brk: r.state === 'Разрыв', r});
+  }
+  return pts;
+}
+function beaconStatus(b, o){
+  const thr = num(o.threshold) ?? 0.1;
+  if(isBrittle(b)){
+    const brk = b.readings.filter(r => r.state === 'Разрыв').sort((x, y) => String(x.date).localeCompare(String(y.date)))[0];
+    if(brk) return {cls: 'warn', text: `разрыв ${fmtDate(brk.date)}`};
+    return {cls: 'ok', text: b.readings.length ? 'целый' : 'нет замеров'};
+  }
+  const pts = series(b);
+  if(pts.length < 2) return {cls: 'minor', text: pts.length ? 'один отсчёт' : 'нет замеров'};
+  const d = pts[pts.length - 1].v - pts[pts.length - 2].v;
+  return {cls: Math.abs(d) <= thr ? 'ok' : 'warn', text: `Δ ${fmtNum(d, true)} мм`};
+}
+function nextBeaconNo(o){
+  const n = o.beacons.reduce((m, b) => { const t = lastNumTok(b.num); return Math.max(m, t ? +t : 0); }, 0);
+  return 'М-' + (n + 1);
+}
+function chartSVG(pts, small){
+  if(!pts.length) return '';
+  const W = small ? 96 : 340, H = small ? 34 : 180;
+  const L = small ? 3 : 42, R = small ? 3 : 12, T = small ? 4 : 12, B = small ? 4 : 26;
+  const xs = pts.map(p => Date.parse(p.d)), ys = pts.map(p => p.v);
+  let x0 = Math.min(...xs), x1 = Math.max(...xs); if(x1 === x0){ x0 -= 3 * 864e5; x1 += 3 * 864e5; }
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if(y1 - y0 < 0.2){ const m = (y0 + y1) / 2; y0 = m - 0.1; y1 = m + 0.1; }
+  const rough = (y1 - y0) / 3, mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const step = [1, 2, 2.5, 5, 10].map(k => k * mag).find(x => x >= rough) || rough;
+  y0 = Math.floor(y0 / step + 1e-9) * step; y1 = Math.ceil(y1 / step - 1e-9) * step;
+  if(y1 === y0) y1 = y0 + step;
+  const X = t => L + (t - x0) / (x1 - x0) * (W - L - R), Y = v => T + (y1 - v) / (y1 - y0) * (H - T - B);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + X(xs[i]).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' ');
+  let grid = '';
+  if(!small){
+    const nt = Math.round((y1 - y0) / step);
+    for(let i = 0; i <= nt; i++){
+      const v = y0 + step * i, y = Y(v).toFixed(1);
+      grid += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${(+y + 4)}" text-anchor="end">${fmtNum(Math.round(v * 100) / 100)}</text>`;
+    }
+    grid += `<text x="${L}" y="${H - 6}">${fmtDate(pts[0].d)}</text>`;
+    if(pts.length > 1) grid += `<text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtDate(pts[pts.length - 1].d)}</text>`;
+  }
+  const dots = pts.map((p, i) => `<circle class="pt${p.brk ? ' break' : ''}" cx="${X(xs[i]).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${small ? 2 : 4}"/>`).join('');
+  return `<svg class="${small ? 'spark' : 'chart'}" viewBox="0 0 ${W} ${H}" ${small ? `width="${W}" height="${H}"` : ''} role="img" aria-label="График раскрытия, мм">
+    ${small ? '' : `<g class="grid">${grid}</g>`}<path class="line" d="${d}"/>${dots}</svg>`;
+}
+function beaconForm(id, preset, opts = {}){
+  const o = cur(); if(!o) return;
+  const ex = id ? o.beacons.find(b => b.id === id) : null;
+  const f = ex ? clone(ex) : {num: nextBeaconNo(o), kind: 'Щелемер', axes: {n: [], l: []}, locText: '', floor: '', construction: '', element: '',
+    installed: today(), initial: '', note: '', readings: [], plan: null, ...clone(preset || {})};
+  const ref = {};
+  const body = h(`<div>
+    <div class="grid2 field">
+      <div class="field"><label for="b-no">Номер маяка</label><input id="b-no" class="inp" data-f="num" value="${esc(f.num)}" autocomplete="off"></div>
+      <div class="field"><label for="b-dt">Дата установки</label><input id="b-dt" type="date" class="inp" data-f="installed" value="${esc(f.installed)}"></div>
+    </div>
+    <div class="field"><div class="lbl">Тип маяка</div>
+      <div class="chips" data-kind>${KINDS.map(k => `<button type="button" class="chip${f.kind === k ? ' on' : ''}" data-k="${k}">${k}</button>`).join('')}</div></div>
+    <div class="field"><label for="b-in">Начальный отсчёт, мм</label>
+      <input id="b-in" class="inp" data-f="initial" inputmode="decimal" value="${esc(f.initial)}" placeholder="для щелемера и индикатора">
+      <div class="hint">Для гипсовых и стеклянных маяков можно не заполнять: на дату установки принимается 0.</div></div>
+    <div class="group"><p class="group-title">Место</p>${placeFieldsHTML(f, o, 'b')}</div>
+    <div class="field"><label for="b-nt">Примечание</label><textarea id="b-nt" class="inp" data-f="note">${esc(f.note)}</textarea></div>
+  </div>`);
+  $('[data-kind]', body).addEventListener('click', e => {
+    const b = e.target.closest('[data-k]'); if(!b) return;
+    f.kind = b.dataset.k; body.querySelectorAll('[data-kind] .chip').forEach(x => x.classList.toggle('on', x === b));
+    if(ref.node) ref.node.dirty = true;
+  });
+  wirePlaceFields(body, f, o, ref, {kind: 'beacon', label: () => f.num});
+  const foot = [];
+  if(ex) foot.push(btn('Удалить', 'danger', async () => {
+    if(!(await ask(`Удалить маяк ${ex.num} вместе со всеми замерами?`, {ok: 'Удалить', danger: true}))) return;
+    o.beacons = o.beacons.filter(b => b !== ex); save(); ref.node.committed = true; closeTop(false, 2); render(); toast('Маяк удалён');
+  }));
+  foot.push(btn('Сохранить', 'primary', () => {
+    if(!f.num.trim()){ toast('Укажите номер маяка', true); return; }
+    f.updated = Date.now();
+    let target;
+    if(ex){ Object.assign(ex, f); target = ex; }
+    else { f.id = uid(); f.created = Date.now(); o.beacons.push(f); target = f; }
+    if(!save()) return;
+    ref.node.committed = true; render();
+    if(ex){ closeTop(false); refreshBeaconDetail(); }
+    else if(opts.fromPlan) closeTop(false);
+    else beaconDetail(target.id, {replace: true});
+    toast(`Маяк ${f.num} сохранён`);
+  }));
+  ref.node = openSheet(ex ? `Маяк ${ex.num}` : 'Новый маяк', body, foot, {trackDirty: true});
+  if(preset && preset.plan) ref.node.dirty = true;
+}
+let detailRef = null;
+function beaconDetailBody(b, o){
+  const pts = series(b), st = beaconStatus(b, o);
+  const last = b.readings.slice().sort((x, y) => String(y.date).localeCompare(String(x.date)))[0];
+  const total = pts.length >= 2 ? fmtNum(pts[pts.length - 1].v - pts[0].v, true) + ' мм' : '';
+  let rate = '';
+  if(pts.length >= 2){
+    const a = pts[pts.length - 2], z = pts[pts.length - 1], days = daysBetween(a.d, z.d), dv = z.v - a.v;
+    rate = `${fmtNum(dv, true)} мм` + (days > 0 ? ` за ${plural(days, ['день','дня','дней'])} (≈ ${fmtNum(dv / days * 30, true)} мм/мес)` : '');
+  }
+  const dr = b.plan && o.drawings.find(x => x.id === b.plan.d);
+  const rows = b.readings.slice().sort((x, y) => String(y.date).localeCompare(String(x.date))).map(r =>
+    `<tr data-r="${r.id}"><td>${fmtDate(r.date)}</td><td class="n">${esc(r.value)}</td>${isBrittle(b) ? `<td>${esc(r.state || '')}</td>` : ''}<td>${esc(r.note || '')}</td></tr>`).join('');
+  return `
+    <dl class="kv">
+      <dt>Тип</dt><dd>${esc(b.kind)}</dd>
+      <dt>Место</dt><dd>${esc(locStr(b) || '—')}</dd>
+      ${b.floor || b.construction || b.element ? `<dt>Привязка</dt><dd>${esc([b.floor, b.construction, b.element].filter(Boolean).join(', '))}</dd>` : ''}
+      ${dr ? `<dt>Чертёж</dt><dd>${esc(dr.name)}</dd>` : ''}
+      <dt>Установлен</dt><dd>${fmtDate(b.installed) || '—'}${b.initial ? `, отсчёт ${esc(b.initial)} мм` : ''}</dd>
+      <dt>Последний замер</dt><dd>${last ? `${fmtDate(last.date)} (${plural(daysBetween(last.date, today()), ['день','дня','дней'])} назад)` : 'нет'}</dd>
+      ${total ? `<dt>С начала</dt><dd>${total}</dd>` : ''}
+      ${rate ? `<dt>Последний интервал</dt><dd>${rate} <span class="tag ${st.cls}">${st.cls === 'ok' ? (isBrittle(b) ? 'целый' : 'в пределах порога') : st.text.startsWith('разрыв') ? esc(st.text) : 'больше порога'}</span></dd>` : (st.cls === 'warn' ? `<dt>Состояние</dt><dd><span class="tag warn">${esc(st.text)}</span></dd>` : '')}
+      ${b.note ? `<dt>Примечание</dt><dd>${esc(b.note)}</dd>` : ''}
+    </dl>
+    ${pts.length ? chartSVG(pts, false) : ''}
+    ${rows ? `<table class="readings"><thead><tr><th>Дата</th><th class="n">Отсчёт, мм</th>${isBrittle(b) ? '<th>Состояние</th>' : ''}<th>Примечание</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="hint">Нажмите на строку, чтобы исправить замер.</p>` : '<p class="muted">Замеров пока нет.</p>'}
+    ${dr ? `<div class="plan-prev" style="margin-top:14px"><canvas width="600" height="450"></canvas></div>` : ''}`;
+}
+function fillBeaconPreview(box, b, o){
+  const dr = b.plan && o.drawings.find(x => x.id === b.plan.d); const cv = $('.plan-prev canvas', box);
+  if(dr && cv) loadInk(dr).then(ink => renderCrop(cv, dr, b.plan.m, 'beacon', b.num, 600, ui().showInk ? ink : null)).catch(() => {});
+}
+function beaconDetail(id, opts = {}){
+  const o = cur(); const b = o.beacons.find(x => x.id === id); if(!b) return;
+  const body = h(`<div>${beaconDetailBody(b, o)}</div>`);
+  body.addEventListener('click', e => { const tr = e.target.closest('[data-r]'); if(tr) readingForm(b.id, tr.dataset.r); });
+  const node = openSheet(`Маяк ${b.num}`, body, [btn('Изменить', '', () => beaconForm(b.id)), btn('+ Замер', 'mark', () => readingForm(b.id))], {replace: !!opts.replace});
+  detailRef = {node, id: b.id};
+  fillBeaconPreview(body, b, o);
+}
+function refreshBeaconDetail(){
+  if(!detailRef || !detailRef.node.isConnected) return;
+  const o = cur(); const b = o.beacons.find(x => x.id === detailRef.id); if(!b) return;
+  const box = $('.sheet-body > div', detailRef.node);
+  box.innerHTML = beaconDetailBody(b, o);
+  $('.sheet-head h2', detailRef.node).textContent = `Маяк ${b.num}`;
+  fillBeaconPreview(box, b, o);
+}
+function readingForm(bid, rid){
+  const o = cur(); const b = o.beacons.find(x => x.id === bid); if(!b) return;
+  const ex = rid ? b.readings.find(r => r.id === rid) : null;
+  const brittle = isBrittle(b);
+  const f = ex ? clone(ex) : {date: today(), value: '', state: brittle ? 'Целый' : '', note: ''};
+  const body = h(`<div>
+    <div class="field"><label for="r-dt">Дата замера</label><input id="r-dt" type="date" class="inp" data-f="date" value="${esc(f.date)}"></div>
+    ${brittle ? `<div class="field"><div class="lbl">Состояние маяка</div><div class="seg" data-st>
+      ${['Целый', 'Разрыв'].map(s => `<button type="button" data-v="${s}" class="${f.state === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>` : ''}
+    <div class="field"><label for="r-v">${brittle ? 'Ширина разрыва, мм' : 'Отсчёт, мм'}</label>
+      <input id="r-v" class="inp" data-f="value" inputmode="decimal" value="${esc(f.value)}" placeholder="${brittle ? 'если разрыв' : '0,00'}"></div>
+    <div class="field"><label for="r-nt">Примечание</label><input id="r-nt" class="inp" data-f="note" value="${esc(f.note)}" autocomplete="off"></div>
+  </div>`);
+  body.addEventListener('input', e => { const k = e.target.dataset.f; if(k) f[k] = e.target.value; });
+  const stBox = $('[data-st]', body);
+  if(stBox) stBox.addEventListener('click', e => {
+    const x = e.target.closest('button'); if(!x) return;
+    f.state = x.dataset.v; stBox.querySelectorAll('button').forEach(y => y.classList.toggle('on', y === x));
+  });
+  const foot = [];
+  if(ex) foot.push(btn('Удалить', 'danger', async () => {
+    if(!(await ask('Удалить замер?', {ok: 'Удалить', danger: true}))) return;
+    b.readings = b.readings.filter(r => r !== ex); b.updated = Date.now(); save(); closeTop(false); refreshBeaconDetail(); render();
+  }));
+  foot.push(btn('Сохранить', 'primary', () => {
+    if(!f.date){ toast('Укажите дату', true); return; }
+    if(!brittle && num(f.value) === null){ toast('Введите отсчёт числом', true); return; }
+    if(ex) Object.assign(ex, f); else { f.id = uid(); b.readings.push(f); }
+    b.updated = Date.now(); save(); closeTop(false); refreshBeaconDetail(); render(); toast('Замер сохранён');
+  }));
+  openSheet(ex ? 'Замер' : `Замер, ${b.num}`, body, foot, {trackDirty: true});
+}
+
+/* ===================== Объекты ===================== */
+function axesFieldsHTML(f, p){
+  return `
+    <div class="field"><label for="${p}-an">Цифровые оси</label><input id="${p}-an" class="inp" data-f="axesN" value="${esc(f.axesN)}" autocomplete="off" placeholder="1-24, 3/1">
+      <div class="hint" data-prev="n"></div></div>
+    <div class="field"><label for="${p}-al">Буквенные оси</label><input id="${p}-al" class="inp" data-f="axesL" value="${esc(f.axesL)}" autocomplete="off" placeholder="А-М, А/1">
+      <div class="hint" data-prev="l"></div></div>`;
+}
+function wireAxesFields(box, f){
+  const prev = () => {
+    for(const k of ['n', 'l']){
+      const list = parseAxes(k === 'n' ? f.axesN : f.axesL, k), el = $(`[data-prev="${k}"]`, box);
+      if(el) el.textContent = list.length ? `${list.length} шт.: ${list.length > 14 ? list.slice(0, 6).join(' ') + ' … ' + list.slice(-4).join(' ') : list.join(' ')}` : 'Оси не заданы';
+    }
+  };
+  box.addEventListener('input', e => { if(e.target.dataset.f === 'axesN' || e.target.dataset.f === 'axesL'){ f[e.target.dataset.f] = e.target.value; prev(); } });
+  prev();
+}
+function objectForm(opts = {}){
+  const f = {name: '', address: '', contract: '', axesN: '1-10', axesL: 'А-Е'};
+  const body = h(`<div>
+    <div class="field"><label for="o-nm">Наименование</label><input id="o-nm" class="inp" data-f="name" placeholder="Жилой дом, ул. Садовая, 5" autocomplete="off"></div>
+    <div class="field"><label for="o-ad">Адрес</label><input id="o-ad" class="inp" data-f="address" autocomplete="off"></div>
+    <div class="field"><label for="o-ct">Договор</label><input id="o-ct" class="inp" data-f="contract" autocomplete="off"></div>
+    ${axesFieldsHTML(f, 'o')}
+  </div>`);
+  wireAxesFields(body, f);
+  body.addEventListener('input', e => { const k = e.target.dataset.f; if(k) f[k] = e.target.value; });
+  const node = openSheet('Новый объект', body, btn('Создать объект', 'primary', () => {
+    if(!f.name.trim()){ toast('Укажите наименование объекта', true); return; }
+    const o = normalizeObject({id: uid(), created: Date.now(), ...f, name: f.name.trim()});
+    db.objects.push(o); db.currentId = o.id; save(); node.dirty = false; closeTop(false); tab = 'drawings'; render(); toast('Объект создан');
+  }), {trackDirty: true, replace: !!opts.replace});
+}
+function objectSwitcher(){
+  const body = h(`<div><div class="obj-list">${db.objects.map(o =>
+    `<button type="button" class="obj-item${o.id === db.currentId ? ' on' : ''}" data-id="${o.id}">${esc(o.name)}<span>${plural(o.defects.length, ['дефект','дефекта','дефектов'])}</span></button>`).join('')}</div></div>`);
+  body.addEventListener('click', e => {
+    const b = e.target.closest('[data-id]'); if(!b) return;
+    db.currentId = b.dataset.id; save(); closeTop(false); render();
+  });
+  openSheet('Объекты', body, btn('+ Новый объект', 'primary', () => objectForm({replace: true})));
+}
+async function deleteObject(o){
+  const ids = [...mediaIds([o])];
+  db.objects = db.objects.filter(x => x !== o); db.currentId = db.objects[0]?.id || null; save(); render();
+  for(const id of ids) await MEDIA.del(id).catch(() => {});
+}
+function drawingActions(dr){
+  const o = cur();
+  const used = planItems(o, dr.id).length;
+  const body = h(`<div><img class="photo-big" alt="" style="background:#fff;border:1px solid var(--rule)">
+    <div class="field" style="margin-top:14px"><label for="dr-nm">Название</label><input id="dr-nm" class="inp" value="${esc(dr.name)}" autocomplete="off"></div>
+    ${dr.src ? `<p class="small" style="margin:0 0 6px">Формат листа: <b>${esc(fmtLabel(dr))}</b> — как в исходном PDF.</p>`
+      : `<div class="field"><label for="dr-fmt">Формат листа для выгрузки</label><select id="dr-fmt" class="inp">${['A0','A1','A2','A3','A4'].map(f => `<option value="${f}"${(dr.fmt || 'A3') === f ? ' selected' : ''}>А${f.slice(1)}</option>`).join('')}</select>
+        <div class="hint">Лист загружен из изображения, поэтому формат задаётся вручную. Ориентация — по изображению.</div></div>`}
+    <p class="hint">${used ? `На чертеже ${plural(used, ['отметка','отметки','отметок'])}.` : 'Отметок пока нет.'}${dr.inkN ? ` Записей: ${dr.inkN}.` : ''}</p></div>`);
+  mediaURL(dr.thumb || dr.id).then(u => { if(u) $('img', body).src = u; });
+  const applyDr = () => {
+    const n = $('#dr-nm', body).value.trim(); if(n) dr.name = n;
+    const f = $('#dr-fmt', body); if(f) dr.fmt = f.value;
+    save(); render();
+  };
+  const sheetsPdfDialogReplace = d => { closeTop(false); setTimeout(() => sheetsPdfDialog([d]), 0); };
+  openSheet('Чертёж', body, [
+    btn('Удалить', 'danger', async () => {
+      if(!(await ask(used ? `Удалить чертёж «${dr.name}»? Отметки ${plural(used, ['записи','записей','записей'])} на нём пропадут, сами записи останутся.` : `Удалить чертёж «${dr.name}»?`, {ok: 'Удалить', danger: true}))) return;
+      for(const it of [...o.defects, ...o.beacons]) if(it.plan && it.plan.d === dr.id) it.plan = null;
+      o.drawings = o.drawings.filter(x => x !== dr); save(); closeTop(false); render();
+      if(dr.src && !db.objects.some(ob => ob.drawings.some(x => x.src === dr.src))) await MEDIA.del(dr.src).catch(() => {});
+      await MEDIA.del(dr.id).catch(() => {}); if(dr.thumb) await MEDIA.del(dr.thumb).catch(() => {}); if(dr.ink) await MEDIA.del(dr.ink).catch(() => {});
+      imgCache.delete(dr.id); inkCache.delete(dr.id); toast('Чертёж удалён');
+    }),
+    btn('В PDF', '', () => { applyDr(); sheetsPdfDialogReplace(dr); }),
+    btn('Сохранить', 'primary', () => { applyDr(); closeTop(false); })
+  ]);
+}
+
+/* ===================== Справочники ===================== */
+function catalogEditor(){
+  const text = db.catalog.map(c => [c.code, c.name, c.group].map(x => x || '').join('; ')).join('\n');
+  const body = h(`<div>
+    <p class="hint" style="margin-top:0">Одна строка — один тип: <b>код; наименование; группа</b>. Код и группу можно не писать. Сюда можно вставить список типов из DEFCLOUD.</p>
+    <textarea class="inp" style="min-height:55vh;font-size:15px;line-height:1.5" spellcheck="false">${esc(text)}</textarea></div>`);
+  const ta = $('textarea', body);
+  const node = openSheet('Каталог дефектов', body, [
+    btn('Стандартный', '', async () => { if(await ask('Заменить текст стандартным каталогом?', {ok: 'Заменить'})){ ta.value = DEFAULT_CATALOG.map(r => r.join('; ')).join('\n'); node.dirty = true; } }),
+    btn('Сохранить', 'primary', () => {
+      const items = [];
+      for(const line of ta.value.split(/\r?\n/)){
+        if(!line.trim()) continue;
+        const parts = line.split(';').map(s => s.trim());
+        if(parts.length === 1) items.push({code: '', name: parts[0], group: ''});
+        else if(parts.length === 2) items.push({code: parts[0], name: parts[1], group: ''});
+        else items.push({code: parts[0], name: parts[1], group: parts.slice(2).join('; ')});
+      }
+      const ok = items.filter(i => i.name);
+      if(!ok.length){ toast('Каталог пуст — добавьте хотя бы один тип', true); return; }
+      db.catalog = ok; save(); node.dirty = false; closeTop(false); render(); toast(`Каталог сохранён: ${plural(ok.length, ['тип','типа','типов'])}`);
+    })], {trackDirty: true});
+}
+function constrEditor(){
+  const body = h(`<div><p class="hint" style="margin-top:0">Одна строка — одна конструкция. Порядок строк — порядок кнопок в форме.</p>
+    <textarea class="inp" style="min-height:45vh" spellcheck="false">${esc(db.constructions.join('\n'))}</textarea></div>`);
+  const ta = $('textarea', body);
+  const node = openSheet('Конструкции', body, btn('Сохранить', 'primary', () => {
+    const list = [...new Set(ta.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean))];
+    if(!list.length){ toast('Список пуст', true); return; }
+    db.constructions = list; save(); node.dirty = false; closeTop(false); render(); toast('Список конструкций сохранён');
+  }), {trackDirty: true});
+}
+
+/* ===================== Выгрузка: файлы ===================== */
+let dlPromise = null;
+function downloadsCap(){
+  if(!dlPromise) dlPromise = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  return dlPromise;
+}
+async function deliver(name, data, mime){
+  const blob = data instanceof Blob ? data : new Blob([data], {type: mime});
+  const dl = await downloadsCap();
+  if(dl){
+    try { await dl.save({filename: name, data: blob}); return true; }
+    catch(e) {
+      const code = e && e.code;
+      if(code === 'declined') return false;
+      if(code === 'rate_limited') toast('Окно сохранения уже открыто — подождите и повторите', true);
+      else toast('Сохранить файл здесь не получилось' + (e && e.message ? ': ' + e.message : ''), true);
+      return false;
+    }
+  }
+  if(FRAMED){ toast('Сохранение файлов в этом окне недоступно', true); return false; }
+  const coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  if(coarse && navigator.canShare){
+    try {
+      const file = new File([blob], name, {type: mime});
+      if(navigator.canShare({files: [file]})){ await navigator.share({files: [file], title: name}); return true; }
+    } catch(e) { if(e && e.name === 'AbortError') return false; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 4000);
+  return true;
+}
+async function offerFile(name, data, mime, opts = {}){
+  const blob = new Blob([data], {type: mime});
+  if(await downloadsCap()){ if(opts.replace) closeTop(false); await deliver(name, blob, mime); return; }
+  const body = h(`<div><p style="margin-top:0;overflow-wrap:anywhere"><b>${esc(name)}</b></p><p class="muted small">Размер: ${fmtMB(blob.size)}</p>
+    <p class="hint">На телефоне откроется меню «Поделиться»: можно сохранить в «Файлы» или отправить в мессенджер или на почту.</p></div>`);
+  openSheet('Файл готов', body, btn('Сохранить или отправить', 'primary', async () => { if(await deliver(name, blob, mime)) closeTop(false); }), {replace: !!opts.replace});
+}
+function csvCell(v){ const s = String(v ?? ''); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function toCSV(rows){ return '\uFEFF' + rows.map(r => r.map(csvCell).join(';')).join('\r\n'); }
+function safeName(s){ return String(s || 'объект').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); }
+function defectsCSV(o){
+  const rows = [['№','Оси','Уточнение места','Этаж, отметка','Конструкция','Элемент','Код','Тип дефекта','Описание',
+    'a, мм','L, м','h, мм','S, м²','Кол-во, шт.','Значимость','Номера кадров','Фото в журнале, шт.','Чертёж','Примечание','Дата записи',
+    'Цифр. ось от','Цифр. ось до','Букв. ось от','Букв. ось до']];
+  for(const d of o.defects.slice().sort((a, b) => a.no - b.no)){
+    const n = d.axes.n || [], l = d.axes.l || [], dr = d.plan && o.drawings.find(x => x.id === d.plan.d);
+    rows.push([d.no, axesOf(d), d.locText, d.floor, d.construction, d.element, d.typeCode, d.typeName, d.descr,
+      d.w, d.len, d.depth, d.area, d.qty, d.sev, d.photos, (d.pics || []).length || '', dr ? dr.name : '', d.note,
+      d.created ? new Date(d.created).toLocaleDateString('ru-RU') : '',
+      n[0] || '', n[1] || n[0] || '', l[0] || '', l[1] || l[0] || '']);
+  }
+  return toCSV(rows);
+}
+function beaconsCSV(o){
+  const rows = [['Маяк','Тип','Оси','Уточнение места','Этаж, отметка','Конструкция','Элемент','Дата установки','Начальный отсчёт, мм',
+    'Дата замера','Отсчёт, мм','Состояние','Изменение от начала, мм','Примечание к замеру']];
+  for(const b of o.beacons){
+    const base = [b.num, b.kind, axesOf(b), b.locText, b.floor, b.construction, b.element, fmtDate(b.installed), b.initial];
+    const pts = series(b), v0 = pts.length ? pts[0].v : null;
+    const rs = b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
+    if(!rs.length) rows.push([...base, '', '', '', '', '']);
+    for(const r of rs){
+      const v = num(r.value);
+      const dv = v !== null && v0 !== null ? fmtNum(Math.round((v - v0) * 1000) / 1000, true).replace('−', '-') : '';
+      rows.push([...base, fmtDate(r.date), r.value, r.state || '', dv, r.note || '']);
+    }
+  }
+  return toCSV(rows);
+}
+
+/* ===================== Выгрузка: Word ===================== */
+const xe = s => String(s ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+async function canvasU8(c, q){ const b = await canvasBlob(c, 'image/jpeg', q); return new Uint8Array(await b.arrayBuffer()); }
+async function buildDocx(o, op, progress){
+  await ensureFflate();
+  const {zipSync, strToU8} = window.fflate;
+  const media = []; let pid = 0;
+  const EMU = 635; // EMU на 1 dxa
+  const PW = 11906, PH = 16838, ML = 1134, MR = 567, MT = 850, MB = 850, FULL = PW - ML - MR; // книжный A4: поле слева 20 мм, справа 10 мм
+  const FULL_L = PH - ML - MR;
+  function pic(u8, w, hh, maxW, maxH){
+    let ww = maxW, h2 = maxW * hh / w; if(h2 > maxH){ h2 = maxH; ww = maxH * w / hh; }
+    const cx = Math.round(ww * EMU), cy = Math.round(h2 * EMU), n = media.length + 1, rid = 'rIdImg' + n;
+    media.push({name: `image${n}.jpeg`, data: u8, rid}); pid++;
+    return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${pid}" name="Рисунок ${pid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${pid}" name="image${n}.jpeg"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+  }
+  const R = (t, f = {}) => `<w:r><w:rPr>${f.b ? '<w:b/><w:bCs/>' : ''}${f.i ? '<w:i/><w:iCs/>' : ''}${f.sz ? `<w:sz w:val="${f.sz}"/><w:szCs w:val="${f.sz}"/>` : ''}</w:rPr><w:t xml:space="preserve">${xe(t)}</w:t></w:r>`;
+  const P = (runs, f = {}) => `<w:p><w:pPr>${f.keepNext ? '<w:keepNext/>' : ''}${f.pageBreak ? '<w:pageBreakBefore/>' : ''}<w:spacing w:before="${f.before || 0}" w:after="${f.after ?? 0}"/>${f.jc ? `<w:jc w:val="${f.jc}"/>` : ''}${f.sect || ''}</w:pPr>${runs || ''}</w:p>`;
+  const linesC = (text, f) => String(text || '').split(/\r?\n/).filter(x => x.trim()).map(x => P(R(x, f), {jc: 'center'})).join('');
+  const BORD = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(k => `<w:${k} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('');
+  const tblOpen = widths => `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/><w:tblBorders>${BORD}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="57" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="57" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
+  const cell = (w, content, f = {}) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${f.span ? `<w:gridSpan w:val="${f.span}"/>` : ''}${f.shd ? `<w:shd w:val="clear" w:color="auto" w:fill="${f.shd}"/>` : ''}<w:vAlign w:val="${f.v || 'center'}"/></w:tcPr>${content || P('')}</w:tc>`;
+  const sectPortrait = `<w:sectPr><w:pgSz w:w="${PW}" w:h="${PH}"/><w:pgMar w:top="${MT}" w:right="${MR}" w:bottom="${MB}" w:left="${ML}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>`;
+  const sectLandscape = `<w:sectPr><w:pgSz w:w="${PH}" w:h="${PW}" w:orient="landscape"/><w:pgMar w:top="${MT}" w:right="${MR}" w:bottom="${MB}" w:left="${ML}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>`;
+
+  // ведомость дефектов по форме отчёта: 7 граф
+  const WC = [582, 1245, 3021, 582, 1367, 2429]; WC.push(FULL - WC.reduce((a, b) => a + b, 0));
+  const HEAD = ['№ п/п', 'Описание дефекта', 'Описание дефекта (фото/эскиз)', 'К.т.с', 'Вероятная причина возникновения', 'Рекомендации по устранению', 'Месторасположение дефекта'];
+  const defects = o.defects.slice().sort((a, b) => a.no - b.no);
+  const drOf = it => it.plan && it.plan.m && it.plan.m.length ? o.drawings.find(x => x.id === it.plan.d) : null;
+  const useFloors = defects.some(d => (d.floor || '').trim());
+  const groups = new Map();
+  for(const d of defects){
+    const key = useFloors ? ((d.floor || '').trim() || 'Без указания этажа') : '';
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(d);
+  }
+  let tbl = tblOpen(WC);
+  tbl += `<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>${HEAD.map((t, i) => cell(WC[i], P(R(t, {b: true, sz: 20}), {jc: 'center'}))).join('')}</w:tr>`;
+  tbl += `<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>${HEAD.map((_, i) => cell(WC[i], P(R(String(i + 1), {b: true, sz: 20}), {jc: 'center'}))).join('')}</w:tr>`;
+  let n = 0;
+  for(const [key, list] of groups){
+    if(key) tbl += `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cell(FULL, P(R(key, {b: true}), {jc: 'center'}), {span: 7})}</w:tr>`;
+    for(const d of list){
+      progress(`Word: дефект ${++n} из ${defects.length}…`);
+      const name = (d.typeName || '').trim(), descr = (d.descr || '').trim();
+      let c2 = name ? P(R(name), {jc: 'center'}) : '';
+      if(descr && descr !== name) c2 += linesC(descr);
+      const pt = paramsText(d); if(pt) c2 += P(R(pt), {jc: 'center'});
+      if(!c2) c2 = P('');
+      let c3 = '';
+      if(op.pics){
+        for(const p of d.pics || []){
+          const blob = await MEDIA.get(p.id); if(!blob) continue;
+          const im = await loadImage(blob);
+          try {
+            const r = await resizeToJpeg(im.img, im.w, im.h, 1200, 0.8);
+            c3 += P(pic(new Uint8Array(await r.blob.arrayBuffer()), r.w, r.h, WC[2] - 190, 4300), {jc: 'center', after: 60});
+          } finally { URL.revokeObjectURL(im.url); }
+        }
+      }
+      if(op.frag){
+        const dr = drOf(d);
+        if(dr){
+          const cv = document.createElement('canvas');
+          if(await renderCrop(cv, dr, d.plan.m, 'defect', String(d.no), 900, op.ink ? await loadInk(dr) : null)) c3 += P(pic(await canvasU8(cv, 0.85), cv.width, cv.height, WC[2] - 190, 3200), {jc: 'center'});
+          cv.width = cv.height = 0;
+        }
+      }
+      if(!c3 && d.photos) c3 = P(R('Фото: ' + d.photos), {jc: 'center'});
+      const loc = axesOf(d);
+      let c7 = (loc ? P(R(loc), {jc: 'center'}) : '') + linesC(d.locText) + linesC(d.element);
+      if(!c7) c7 = P('');
+      tbl += `<w:tr>${cell(WC[0], P(R(String(d.no)), {jc: 'center'}))}${cell(WC[1], c2)}${cell(WC[2], c3)}${cell(WC[3], '')}${cell(WC[4], '')}${cell(WC[5], '')}${cell(WC[6], c7)}</w:tr>`;
+    }
+  }
+  tbl += '</w:tbl>';
+
+  let body = P(R('Ведомость дефектов и повреждений', {b: true, sz: 28}), {jc: 'center', after: 60});
+  body += P(R(o.name + (o.address ? ', ' + o.address : '')), {jc: 'center', after: 200});
+  body += defects.length ? tbl : P(R('Дефекты не внесены.', {i: true}));
+
+  let tail = '';
+  if(op.maps){
+    const drs = o.drawings.filter(dr => planItems(o, dr.id).length);
+    let k = 0;
+    for(const dr of drs){
+      progress(`Word: схема ${k + 1} из ${drs.length}…`);
+      const c = await renderMap(dr, o, 3000, op.ink ? await loadInk(dr) : null, {defects: true, beacons: true});
+      const u8 = await canvasU8(c, 0.85);
+      if(k === 0) tail += P(R('Схемы расположения дефектов', {b: true, sz: 28}), {jc: 'center', after: 200, keepNext: true});
+      k++;
+      tail += P(pic(u8, c.width, c.height, FULL_L, 8300), {jc: 'center', keepNext: true, pageBreak: k > 1});
+      tail += P(R(`Рисунок ${k} — Схема расположения дефектов. ${dr.name}`), {jc: 'center', before: 60, after: 240});
+      c.width = c.height = 0;
+    }
+  }
+  if(op.beacons && o.beacons.length){
+    tail += P(R('Маяки', {b: true, sz: 28}), {jc: 'center', after: 200, keepNext: true, pageBreak: !!tail});
+    const bw = [1000, 1500, 3400, 2000, 0, 2200]; bw[4] = FULL_L - bw.reduce((a, b) => a + b, 0);
+    let t2 = tblOpen(bw) + `<w:tr><w:trPr><w:tblHeader/></w:trPr>${['Маяк', 'Тип', 'Местоположение', 'Установлен', 'Замеры', 'Изменение с начала, мм'].map((t, i) => cell(bw[i], P(R(t, {b: true}), {jc: 'center'}), {shd: 'E8E8E8'})).join('')}</w:tr>`;
+    for(const b of o.beacons.slice().sort((a, c) => String(a.num).localeCompare(String(c.num), 'ru', {numeric: true}))){
+      const pts = series(b), rs = b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
+      const total = pts.length >= 2 ? fmtNum(Math.round((pts[pts.length - 1].v - pts[0].v) * 1000) / 1000, true) : '—';
+      t2 += `<w:tr>${cell(bw[0], P(R(b.num, {b: true}), {jc: 'center'}))}${cell(bw[1], P(R(b.kind), {jc: 'center'}))}${cell(bw[2], P(R(axesOf(b) || '—'), {jc: 'center'}) + linesC(b.locText) + linesC([b.floor, b.construction, b.element].filter(Boolean).join(', ')))}${cell(bw[3], P(R(fmtDate(b.installed) || '—'), {jc: 'center'}) + (b.initial ? P(R(`отсчёт ${b.initial} мм`), {jc: 'center'}) : ''))}${cell(bw[4], rs.length ? rs.map(r => P(R(`${fmtDate(r.date)} — ${r.value ? r.value + ' мм' : ''}${r.state ? (r.value ? ', ' : '') + r.state.toLowerCase() : ''}`))).join('') : P(R('замеров нет', {i: true})))}${cell(bw[5], P(R(isBrittle(b) ? beaconStatus(b, o).text : total), {jc: 'center'}))}</w:tr>`;
+    }
+    tail += t2 + '</w:tbl>';
+  }
+  // книжная ведомость; схемы и маяки — отдельным альбомным разделом
+  if(tail) body += P('', {sect: sectPortrait}) + tail + sectLandscape;
+  else body += sectPortrait;
+
+  progress('Word: упаковка…');
+  const xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const docXml = `${xml}<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}</w:body></w:document>`;
+  const styles = `${xml}<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="ru-RU" w:eastAsia="ru-RU" w:bidi="ar-SA"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style></w:styles>`;
+  const ct = `${xml}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`;
+  const rootRels = `${xml}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`;
+  const docRels = `${xml}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${media.map(m => `<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m.name}"/>`).join('')}</Relationships>`;
+  const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const core = `${xml}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xe('Ведомость дефектов — ' + o.name)}</dc:title><dc:creator>Полевой журнал</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`;
+  const files = {
+    '[Content_Types].xml': strToU8(ct), '_rels/.rels': strToU8(rootRels), 'docProps/core.xml': strToU8(core),
+    'word/document.xml': strToU8(docXml), 'word/styles.xml': strToU8(styles), 'word/_rels/document.xml.rels': strToU8(docRels)
+  };
+  for(const m of media) files['word/media/' + m.name] = [m.data, {level: 0}];
+  return zipSync(files, {level: 6});
+}
+
+function wordDialog(){
+  const o = cur(); if(!o) return;
+  if(!o.defects.length && !o.beacons.length){ toast('Нет записей для выгрузки', true); return; }
+  const nPics = o.defects.reduce((a, d) => a + (d.pics || []).length, 0);
+  const nPlans = o.defects.filter(d => d.plan).length, hasInk = o.drawings.some(d => d.inkN);
+  const body = h(`<div>
+    <p style="margin-top:0">Ведомость дефектов по форме: № п/п, описание, фото/эскиз, К.т.с, причина, рекомендации, месторасположение. Причина, рекомендации и К.т.с остаются пустыми — для заполнения инженером. Строки группируются по полю «Этаж, отметка».</p>
+    <label class="check"><input type="checkbox" data-o="pics" ${nPics ? 'checked' : 'disabled'}> Фото в графе «фото/эскиз»${nPics ? ` (${nPics})` : ' — фото нет'}</label>
+    <label class="check"><input type="checkbox" data-o="frag" ${nPlans ? '' : 'disabled'}> Добавить фрагмент чертежа с отметкой (эскиз)</label>
+    <label class="check"><input type="checkbox" data-o="maps" ${nPlans || o.beacons.some(b => b.plan) ? '' : 'disabled'}> Схемы расположения дефектов (отдельные листы)</label>
+    <label class="check"><input type="checkbox" data-o="beacons" ${o.beacons.length ? '' : 'disabled'}> Таблица маяков</label>
+    <label class="check"><input type="checkbox" data-o="ink" ${hasInk ? '' : 'disabled'}> Полевые записи на эскизах и схемах</label>
+    <p class="hint">Книжный A4, Times New Roman 11. Документ собирается на устройстве, интернет не нужен.</p></div>`);
+  openSheet('Ведомость в Word', body, btn('Сформировать', 'primary', async () => {
+    const op = {}; body.querySelectorAll('[data-o]').forEach(c => { op[c.dataset.o] = c.checked; });
+    try {
+      busy('Готовлю документ…');
+      const u8 = await buildDocx(o, op, m => busy(m));
+      busy(null);
+      offerFile(`Ведомость_${safeName(o.name)}_${today()}.docx`, u8, DOCX_MIME, {replace: true});
+    } catch(e) { busy(null); toast('Документ не сформировался: ' + e.message, true); }
+  }));
+}
+
+
+/* ===================== Резервные копии ===================== */
+async function backupZip(all){
+  const o = cur(), objs = all ? db.objects : (o ? [o] : []);
+  try {
+    busy('Собираю резервную копию…');
+    await ensureFflate();
+    const {zipSync, strToU8} = window.fflate;
+    const data = {app: 'polevoy-zhurnal', version: 2, exported: new Date().toISOString(), scope: all ? 'all' : 'object',
+      objects: objs, catalog: db.catalog, constructions: db.constructions};
+    const files = {'data.json': strToU8(JSON.stringify(data))};
+    const ids = [...mediaIds(objs)]; let i = 0;
+    for(const id of ids){
+      busy(`Собираю копию: файл ${++i} из ${ids.length}…`);
+      const b = await MEDIA.get(id); if(b) files['media/' + id] = [new Uint8Array(await b.arrayBuffer()), {level: 0}];
+    }
+    const u8 = zipSync(files, {level: 6});
+    busy(null);
+    offerFile(all ? `Журнал_все_объекты_${today()}.zip` : `Журнал_${safeName(o && o.name)}_${today()}.zip`, u8, 'application/zip');
+  } catch(e) { busy(null); toast('Копия не собралась: ' + e.message, true); }
+}
+async function importBackup(file){
+  try {
+    let d, mf = {};
+    if(/\.zip$/i.test(file.name) || /zip/.test(file.type)){
+      busy('Читаю архив…');
+      await ensureFflate();
+      const z = window.fflate.unzipSync(new Uint8Array(await file.arrayBuffer()));
+      if(!z['data.json']) throw new Error('в архиве нет data.json');
+      d = JSON.parse(window.fflate.strFromU8(z['data.json']));
+      for(const k in z) if(k.startsWith('media/') && z[k].length) mf[k.slice(6)] = z[k];
+    } else d = JSON.parse(await file.text());
+    busy(null);
+    if(!d || !Array.isArray(d.objects)) throw new Error('файл не похож на резервную копию журнала');
+    let added = 0, replaced = 0; const accepted = [];
+    for(const ob of d.objects){
+      if(!ob || !ob.id) continue;
+      normalizeObject(ob);
+      const i = db.objects.findIndex(x => x.id === ob.id);
+      if(i >= 0){ if(await ask(`Объект «${ob.name}» уже есть. Заменить его версией из файла?`, {ok: 'Заменить'})){ db.objects[i] = ob; replaced++; accepted.push(ob); } }
+      else { db.objects.push(ob); added++; accepted.push(ob); }
+    }
+    const catDiff = Array.isArray(d.catalog) && JSON.stringify(d.catalog) !== JSON.stringify(db.catalog);
+    const conDiff = Array.isArray(d.constructions) && JSON.stringify(d.constructions) !== JSON.stringify(db.constructions);
+    if((catDiff || conDiff) && await ask('Заменить каталог дефектов и список конструкций версиями из файла?', {ok: 'Заменить', cancel: 'Оставить мои'})){
+      if(catDiff) db.catalog = d.catalog; if(conDiff) db.constructions = d.constructions;
+    }
+    const ids = [...mediaIds(accepted)].filter(id => mf[id]); let i = 0;
+    for(const id of ids){ busy(`Восстанавливаю файлы: ${++i} из ${ids.length}…`); await MEDIA.put(id, new Blob([mf[id]], {type: 'image/jpeg'})); dropURL(id); imgCache.delete(id); }
+    busy(null); inkCache.clear();
+    if(!cur() && db.objects.length) db.currentId = db.objects[0].id;
+    save(); render(); toast(`Импорт: добавлено ${added}, заменено ${replaced}`);
+  } catch(e) { busy(null); info('Не удалось импортировать: ' + e.message); }
+}
+
+/* ===================== Экраны ===================== */
+let tab = 'drawings', fq = '', fc = '';
+function render(){
+  const o = cur();
+  $('#top').innerHTML = `
+    <button type="button" class="obj-btn" id="objBtn" aria-label="Сменить объект"><span class="obj-name">${esc(o ? o.name : 'Полевой журнал')}</span>
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <span class="top-count">${o ? (tab === 'beacons' ? plural(o.beacons.length, ['маяк','маяка','маяков']) : tab === 'drawings' ? plural(o.drawings.length, ['лист','листа','листов']) : plural(o.defects.length, ['дефект','дефекта','дефектов'])) : ''}</span>`;
+  $('#objBtn').onclick = () => db.objects.length ? objectSwitcher() : objectForm();
+  document.querySelectorAll('#tabs button').forEach(b => { if(b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  const fab = $('#fab');
+  fab.hidden = !o || tab === 'object';
+  fab.innerHTML = '<span aria-hidden="true">+</span> ' + (tab === 'beacons' ? 'Маяк' : tab === 'drawings' ? 'Чертёж' : 'Дефект');
+  fab.hidden = fab.hidden || (tab === 'drawings' && !o.drawings.length);
+  const v = $('#view');
+  if(!o && tab !== 'object'){
+    v.innerHTML = `<div class="empty"><h2>Начните с объекта</h2><p>Задайте наименование и оси — после этого можно загрузить чертежи и вносить дефекты.</p></div>`;
+    v.querySelector('.empty').append(btn('Создать объект', 'primary', () => objectForm()));
+    return;
+  }
+  if(tab === 'drawings') renderDrawings(v, o);
+  else if(tab === 'defects') renderDefects(v, o);
+  else if(tab === 'beacons') renderBeacons(v, o);
+  else renderObject(v, o);
+}
+function renderDrawings(v, o){
+  if(!o.drawings.length){
+    v.innerHTML = `<div class="empty"><h2>Загрузите чертежи</h2><p>PDF или фото листов. Потом откройте лист и работайте прямо на нём: записи пером, размеры, отметки дефектов.</p>
+      <button type="button" class="btn primary" data-add-drawing>Загрузить чертёж</button></div>`;
+    return;
+  }
+  v.innerHTML = `<div class="dgrid">${o.drawings.map(d => {
+    const n = planItems(o, d.id).filter(x => x.kind === 'defect').length;
+    const nb = planItems(o, d.id).filter(x => x.kind === 'beacon').length;
+    const meta = [paperName(...pageMM(d)) || '', n ? plural(n, ['дефект','дефекта','дефектов']) : '', nb ? plural(nb, ['маяк','маяка','маяков']) : '', d.inkN ? plural(d.inkN, ['запись','записи','записей']) : ''].filter(Boolean).join(', ') || 'без отметок';
+    return `<div class="dcard"><button type="button" class="dcard-open" data-open-dr="${d.id}" aria-label="Открыть ${esc(d.name)}"><img alt="" data-src="${d.thumb || d.id}"></button>
+      <div class="dcard-meta"><div><div class="dcard-name">${esc(d.name)}</div><div class="dcard-sub">${esc(meta)}</div></div>
+      <button type="button" class="tb" data-act-dr="${d.id}" aria-label="Изменить лист" title="Переименовать или удалить">${IC.more}</button></div></div>`;
+  }).join('')}</div>`;
+  v.querySelectorAll('img[data-src]').forEach(im => mediaURL(im.dataset.src).then(u => { if(u) im.src = u; }).catch(() => {}));
+}
+function drawingChips(o){
+  if(!o.drawings.length) return '';
+  return `<div class="filters" data-drs><span class="filters-lbl">Чертежи:</span>${o.drawings.map(d => `<button type="button" class="chip" data-open-dr="${d.id}">${esc(d.name)}</button>`).join('')}</div>`;
+}
+function defectRow(d, o){
+  const meta = [d.floor, d.construction, d.element].filter(Boolean).join(', ');
+  const dr = d.plan && o.drawings.find(x => x.id === d.plan.d);
+  const tail = [meta, (d.pics || []).length ? `${d.pics.length} фото` : '', d.photos ? 'кадры ' + d.photos : '', dr ? 'чертёж: ' + dr.name : ''].filter(Boolean).join('; ');
+  return `<div class="row sev-${esc(d.sev || 'none')}" role="button" tabindex="0" data-id="${d.id}">
+    <span class="row-no">${d.no}</span>
+    <div>
+      <div class="row-loc">${esc(locStr(d) || 'место не указано')}${d.sev ? `<span class="tag ${SEV_CLASS[d.sev]}">${esc(d.sev)}</span>` : ''}</div>
+      <div class="row-type">${esc(d.typeName || d.descr)}</div>
+      ${paramsStr(d) ? `<div class="row-param">${esc(paramsStr(d))}</div>` : ''}
+      ${tail ? `<div class="row-meta">${esc(tail)}</div>` : ''}
+    </div></div>`;
+}
+function renderDefects(v, o){
+  if(!o.defects.length){
+    v.innerHTML = `${drawingChips(o)}<div class="empty"><h2>Дефектов пока нет</h2><p>${o.drawings.length ? 'Откройте чертёж выше и обведите место дефекта или нажмите «+ Дефект».' : 'Нажмите «+ Дефект». Чертежи для отметок загружаются в разделе «Объект».'}</p></div>`;
+    return;
+  }
+  const used = db.constructions.filter(c => o.defects.some(d => d.construction === c));
+  if(fc && !used.includes(fc)) fc = '';
+  v.innerHTML = `${drawingChips(o)}
+    <input type="search" class="search" id="fq" placeholder="Поиск: оси, тип, элемент, фото" value="${esc(fq)}" autocomplete="off" style="margin-top:${o.drawings.length ? 6 : 0}px">
+    ${used.length > 1 ? `<div class="filters" id="fcs"><button type="button" class="chip${!fc ? ' on' : ''}" data-c="">Все</button>${used.map(c => `<button type="button" class="chip${fc === c ? ' on' : ''}" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''}
+    <div class="summary" id="fsum"></div><div class="ledger" id="flist"></div>`;
+  $('#fq').addEventListener('input', e => { fq = e.target.value; drawDefectList(o); });
+  const fcs = $('#fcs');
+  if(fcs) fcs.addEventListener('click', e => {
+    const b = e.target.closest('[data-c]'); if(!b) return;
+    fc = b.dataset.c; fcs.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === b)); drawDefectList(o);
+  });
+  drawDefectList(o);
+}
+function drawDefectList(o){
+  const s = fq.trim().toLowerCase();
+  const list = o.defects.filter(d => {
+    if(fc && d.construction !== fc) return false;
+    if(!s) return true;
+    return [d.no, locStr(d), d.floor, d.construction, d.element, d.typeCode, d.typeName, d.descr, d.photos, d.note].join(' ').toLowerCase().includes(s);
+  }).sort((a, b) => b.no - a.no);
+  $('#fsum').textContent = list.length === o.defects.length ? `Новые сверху, всего ${o.defects.length}` : `Найдено ${list.length} из ${o.defects.length}`;
+  $('#flist').innerHTML = list.map(d => defectRow(d, o)).join('') || '<p class="muted" style="padding:14px;margin:0">Ничего не найдено.</p>';
+}
+function renderBeacons(v, o){
+  if(!o.beacons.length){
+    v.innerHTML = `<div class="empty"><h2>Маяков пока нет</h2><p>Заведите маяк при установке, потом добавляйте замеры — график построится сам.</p></div>`;
+    return;
+  }
+  const items = o.beacons.slice().sort((a, b) => String(a.num).localeCompare(String(b.num), 'ru', {numeric: true}));
+  v.innerHTML = `<div class="summary">Порог изменения для отметки: ${esc(o.threshold)} мм (меняется в разделе «Объект»)</div>
+    <div class="ledger">${items.map(b => {
+      const st = beaconStatus(b, o), pts = series(b);
+      const last = b.readings.slice().sort((x, y) => String(y.date).localeCompare(String(x.date)))[0];
+      return `<div class="beacon" role="button" tabindex="0" data-id="${b.id}">
+        <div class="b-title">${esc(b.num)}<small>${esc(b.kind)}</small></div>
+        ${pts.length > 1 ? chartSVG(pts, true) : '<span></span>'}
+        <div class="b-line" style="color:var(--axis);font-style:italic;font-weight:600">${esc(locStr(b) || 'место не указано')}</div>
+        <div class="b-line">${last ? `замер ${fmtDate(last.date)}, ${esc(last.value || last.state || '')}${last.value ? ' мм' : ''}` : 'замеров нет'} <span class="tag ${st.cls}">${esc(st.text)}</span></div>
+      </div>`;
+    }).join('')}</div>`;
+}
+function renderObject(v, o){
+  v.innerHTML = '';
+  if(o){
+    const p = h(`<section class="panel"><h3>Текущий объект</h3>
+      <div class="field"><label for="c-nm">Наименование</label><input id="c-nm" class="inp" data-f="name" value="${esc(o.name)}" autocomplete="off"></div>
+      <div class="field"><label for="c-ad">Адрес</label><input id="c-ad" class="inp" data-f="address" value="${esc(o.address)}" autocomplete="off"></div>
+      <div class="field"><label for="c-ct">Договор</label><input id="c-ct" class="inp" data-f="contract" value="${esc(o.contract)}" autocomplete="off"></div>
+      ${axesFieldsHTML(o, 'c')}
+      <div class="field"><label for="c-th">Порог изменения по маякам, мм</label><input id="c-th" class="inp" data-f="threshold" inputmode="decimal" value="${esc(o.threshold)}">
+        <div class="hint">Изменение за последний интервал больше порога отмечается жёлтым. Порог — по точности прибора.</div></div>
+    </section>`);
+    let t;
+    p.addEventListener('input', e => {
+      const k = e.target.dataset.f; if(!k) return;
+      o[k] = k === 'name' ? (e.target.value || 'Без названия') : e.target.value;
+      clearTimeout(t); t = setTimeout(() => { save(); if(k === 'name') $('.obj-name').textContent = o.name; }, 300);
+    });
+    wireAxesFields(p, o);
+    v.append(p);
+
+
+    const ex = h(`<section class="panel"><h3>Выгрузка</h3>
+      <p class="small muted">Таблицы CSV открываются в Excel; оси в них дополнительно разложены по столбцам — для переноса на чертёж.</p>
+      <div class="btn-col"></div></section>`);
+    $('.btn-col', ex).append(
+      btn('Ведомость в Word', 'primary', wordDialog),
+      btn(`Листы с записями, PDF (${o.drawings.length})`, '', () => sheetsPdfDialog(o.drawings)),
+      btn(`Дефекты, CSV (${o.defects.length})`, '', () => { if(!o.defects.length) return toast('Нет дефектов для выгрузки', true); deliver(`Дефекты_${safeName(o.name)}_${today()}.csv`, defectsCSV(o), 'text/csv'); }),
+      btn(`Маяки и замеры, CSV (${o.beacons.length})`, '', () => { if(!o.beacons.length) return toast('Нет маяков для выгрузки', true); deliver(`Маяки_${safeName(o.name)}_${today()}.csv`, beaconsCSV(o), 'text/csv'); }),
+      btn('Резервная копия объекта (.zip)', '', () => backupZip(false)));
+    v.append(ex);
+  }
+  const all = h(`<section class="panel"><h3>Все объекты</h3><div class="obj-list"></div><div class="btn-row" style="margin-top:10px"></div></section>`);
+  $('.obj-list', all).innerHTML = db.objects.map(x => `<button type="button" class="obj-item${x.id === db.currentId ? ' on' : ''}" data-id="${x.id}">${esc(x.name)}<span>${plural(x.defects.length, ['дефект','дефекта','дефектов'])}</span></button>`).join('') || '<p class="muted small">Объектов нет.</p>';
+  $('.obj-list', all).addEventListener('click', e => { const b = e.target.closest('[data-id]'); if(!b) return; db.currentId = b.dataset.id; save(); render(); });
+  $('.btn-row', all).append(btn('+ Новый объект', 'primary small', () => objectForm()),
+    btn('Импорт копии', 'small', () => pickFiles('.zip,.json,application/zip,application/json', false, f => importBackup(f[0]))));
+  if(db.objects.length) $('.btn-row', all).append(btn('Копия всех', 'small', () => backupZip(true)));
+  v.append(all);
+
+  const sp = h(`<section class="panel"><h3>Справочники</h3><div class="btn-col"></div></section>`);
+  $('.btn-col', sp).append(btn(`Каталог дефектов (${plural(db.catalog.length, ['тип','типа','типов'])})`, '', catalogEditor), btn('Конструкции', '', constrEditor));
+  v.append(sp);
+
+  if(o){
+    const dz = h(`<section class="panel"><h3>Удаление</h3><p class="small muted">Удаляется текущий объект со всеми дефектами, фото, чертежами и маяками. Сначала сделайте резервную копию.</p></section>`);
+    dz.append(btn('Удалить объект', 'danger small', async () => {
+      if(!(await ask(`Удалить объект «${o.name}» (${plural(o.defects.length, ['дефект','дефекта','дефектов'])}, ${plural(o.beacons.length, ['маяк','маяка','маяков'])})? Это необратимо.`, {ok: 'Удалить', danger: true}))) return;
+      deleteObject(o).then(() => toast('Объект удалён'));
+    }));
+    v.append(dz);
+  }
+  const note = h(`<p class="small muted" style="padding:0 4px">Данные хранятся только на этом устройстве и никуда не отправляются. Делайте резервную копию после каждого выезда.<span data-usage></span></p>`);
+  v.append(note);
+  if(navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(e => { const u = $('[data-usage]', note); if(u && e.usage) u.textContent = ` Занято: ${fmtMB(e.usage)}.`; }).catch(() => {});
+}
+
+/* ===================== Запуск ===================== */
+document.getElementById('tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if(!b) return;
+  tab = b.dataset.tab; render(); window.scrollTo(0, 0);
+});
+document.getElementById('fab').addEventListener('click', () => {
+  if(tab === 'beacons') beaconForm();
+  else if(tab === 'drawings') pickFiles('application/pdf,image/*', true, importDrawingFiles);
+  else defectForm();
+});
+document.getElementById('view').addEventListener('click', e => {
+  const ad = e.target.closest('[data-act-dr]');
+  if(ad){ const o = cur(), dr = o && o.drawings.find(x => x.id === ad.dataset.actDr); if(dr) drawingActions(dr); return; }
+  if(e.target.closest('[data-add-drawing]')){ pickFiles('application/pdf,image/*', true, importDrawingFiles); return; }
+  const od = e.target.closest('[data-open-dr]');
+  if(od){ const o = cur(), dr = o && o.drawings.find(x => x.id === od.dataset.openDr); if(dr) openPlan({drawing: dr, mode: 'work'}); return; }
+  const r = e.target.closest('.row[data-id]'); if(r){ defectForm(r.dataset.id); return; }
+  const b = e.target.closest('.beacon[data-id]'); if(b) beaconDetail(b.dataset.id);
+});
+document.getElementById('view').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const t = e.target.closest('[role="button"][data-id]'); if(!t) return;
+  e.preventDefault(); t.click();
+});
+
+load(); render(); gcMedia(); downloadsCap(); probeBlobImages();
+try { if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e) {}
+if(BUILD.pwa && !FRAMED && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>

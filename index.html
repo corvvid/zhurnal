@@ -239,8 +239,9 @@ select.inp{appearance:auto}
 .pop .sw.on{box-shadow:0 0 0 2px var(--sheet),0 0 0 4px var(--ink)}
 .pop .sw-any{background:conic-gradient(#e53935,#fdd835,#43a047,#1e88e5,#8e24aa,#e53935)}
 .pop .sw-any input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
-.pop .wd{width:48px;height:40px;border-radius:10px;border:1px solid var(--rule);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#14202a}
-.pop .wd.on{border-color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.pop .wd{width:48px;height:40px;border-radius:10px;border:2px solid transparent;background:#fff;box-shadow:inset 0 0 0 1px #cdd5da;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#14202a}
+.pop .wd.on{border-color:var(--mark);box-shadow:none;background:#fff1f1}
+.pop .wd.txt{width:auto;padding:0 12px;font-size:14px;font-weight:600}
 .pop .wd i{display:block;border-radius:99px}
 .menu-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 2px;border:0;border-top:1px solid var(--rule);background:none;text-align:left;font-size:15.5px;line-height:1.3;cursor:pointer;color:var(--ink)}
 .menu-item:first-child,.pop-title+.menu-item{border-top:0}
@@ -267,6 +268,21 @@ select.inp{appearance:auto}
 .sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .sugg:empty{display:none}
 .chip-add{border-style:dashed;color:var(--axis)}
+/* экран объектов */
+.olist{display:flex;flex-direction:column;gap:10px}
+.ocard{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;text-align:left;padding:14px 16px;border:1px solid var(--rule);border-radius:12px;background:var(--sheet);cursor:pointer;font:inherit;color:var(--ink)}
+.ocard:active{background:var(--sheet-2)}
+.ocard-name{font-size:17px;font-weight:700;overflow-wrap:anywhere}
+.ocard-addr{font-size:14.5px;color:var(--ink-2)}
+.ocard-meta{font-size:13.5px;color:var(--ink-2);margin-top:3px}
+.top .obj-name{flex:1;min-width:0;font-size:19px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back-btn{flex:none;display:flex;align-items:center;gap:2px;border:0;background:none;color:var(--axis);font:inherit;font-size:16px;font-weight:600;padding:8px 6px 8px 0;cursor:pointer}
+body.at-home .tabs{display:none}
+body.at-home .fab{bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
+body.at-home{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.tb-txt{font-weight:700;font-size:16px;border:1px solid var(--rule)}
+.calc{display:flex;flex-wrap:wrap;gap:6px 18px;margin:-4px 0 14px;font-size:15px;color:var(--ink-2)}
+.calc b{color:var(--ink)}
 /* диалоги */
 .dlg{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.38);display:flex;align-items:center;justify-content:center;padding:20px}
 .dlg-box{background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 16px 40px -14px rgba(0,0,0,.45)}
@@ -340,7 +356,7 @@ const LET = 'АБВГДЕЖИКЛМНПРСТУФШЭЮЯ'.split('');
 const LAT2CYR = {A:'А',B:'В',C:'С',E:'Е',H:'Н',K:'К',M:'М',P:'Р',T:'Т',X:'Х',Y:'У'};
 const SEV = [['','—'],['малозначительный','Малозн.'],['значительный','Значит.'],['критический','Критич.']];
 const SEV_CLASS = {'малозначительный':'minor','значительный':'major','критический':'critical'};
-const KINDS = ['Щелемер','Гипсовый','Стеклянный','Цементный','Индикатор','Прочее'];
+const KINDS = ['Щелемер','Гипсовый','Стеклянный','Цементный','Индикатор','Измерительный','Прочее'];
 const BRITTLE = ['Гипсовый','Стеклянный','Цементный'];
 const BUILD = {pwa: true, fflate: 'fflate.min.js', pdf: 'pdf.min.js', pdfWorker: 'pdf.worker.min.js', pdflib: 'pdf-lib.min.js'};
 const FRAMED = (() => { try { return window.top !== window.self; } catch(e) { return true; } })();
@@ -408,11 +424,11 @@ function busy(msg){
 }
 function dialog(o){
   return new Promise(res => {
-    const ov = h(`<div class="dlg" role="alertdialog" aria-modal="true"><div class="dlg-box"><p class="dlg-msg"></p>${o.input ? '<input class="inp" autocomplete="off">' : ''}
+    const ov = h(`<div class="dlg" role="alertdialog" aria-modal="true"><div class="dlg-box"><p class="dlg-msg"></p>${o.input ? `<input class="inp" autocomplete="off" enterkeyhint="done">${o.inputHint ? `<p class="hint" style="margin:-8px 0 14px">${esc(o.inputHint)}</p>` : ''}` : ''}
       <div class="dlg-btns">${o.cancel === null ? '' : `<button type="button" class="btn" data-no>${esc(o.cancel || 'Отмена')}</button>`}<button type="button" class="btn ${o.danger ? 'mark' : 'primary'}" data-yes>${esc(o.ok || 'Да')}</button></div></div></div>`);
     $('.dlg-msg', ov).textContent = o.message;
     const inp = $('input', ov); if(inp) inp.value = o.value || '';
-    const done = v => { ov.remove(); document.removeEventListener('keydown', key, true); res(v); };
+    const done = v => { if(inp) inp.blur(); ov.remove(); document.removeEventListener('keydown', key, true); res(v); };
     const no = () => done(o.input ? null : false), yes = () => done(o.input ? inp.value : true);
     const key = e => {
       if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); no(); }
@@ -421,9 +437,11 @@ function dialog(o){
     const nb = $('[data-no]', ov); if(nb) nb.onclick = no;
     $('[data-yes]', ov).onclick = yes;
     document.addEventListener('keydown', key, true); document.body.append(ov);
-    setTimeout(() => (inp || $('[data-yes]', ov)).focus(), 30);
+    // фокус сразу, без задержки: на iPad клавиатура открывается только из касания
+    try { (inp || $('[data-yes]', ov)).focus({preventScroll: true}); } catch(e) {}
   });
 }
+
 const ask = (message, o = {}) => dialog({message, ...o});
 const askText = (message, value) => dialog({message, input: true, value, ok: 'Загрузить'});
 const info = message => dialog({message, ok: 'Понятно', cancel: null});
@@ -776,12 +794,19 @@ function planItems(o, drId){
 COL.defect = '#d81f26';
 const MARK_FONT = '"Arial Narrow","Helvetica Neue",Arial,sans-serif';
 const f1 = v => Math.round(v * 10) / 10;
+const MARK_COLORS = ['#d81f26', '#e07a00', '#c9a400', '#2c7a4b', '#1d4f7a', '#0f8ea8', '#7a3fb0', '#14202a'];
+function markColor(kind, ref){ return (ref && ref.mc) || (kind === 'beacon' ? COL.axis : COL.defect); }
 function sheetMetrics(dr){
   const [wmm, hmm] = pageMM(dr), px = dr.w / wmm, L = Math.max(wmm, hmm);
-  const tmm = Math.min(7, Math.max(3.5, L / 95)); // высота номера: А4 ≈ 3,5 мм, А3 ≈ 4,4 мм, А2 ≈ 6 мм, А1–А0 — 7 мм
-  return {px, text: tmm * px, lw: Math.max(0.3 * px, 1), hatch: Math.max(1.5, tmm * 0.38) * px, bump: Math.max(1.4, tmm * 0.45) * px,
-    arrowL: Math.max(2.6, tmm * 0.75) * px, arrowW: Math.max(0.9, tmm * 0.25) * px, gap: tmm * 1.5 * px, minSide: 1.2 * px, tapSide: 3.5 * px};
+  const auto = Math.min(7, Math.max(3.5, L / 95)); // авто-высота номера: А4 ≈ 3,5 мм, А3 ≈ 4,4 мм, А2 ≈ 6 мм, А1–А0 — 7 мм
+  const tmm = +dr.textMM || auto, k = tmm / 5;
+  return {px, tmm, auto, text: tmm * px,
+    lw: Math.max(0.25, 0.42 * k) * px,       // облако
+    thin: Math.max(0.12, 0.16 * k) * px,     // штриховка, выноска
+    hatch: Math.max(1.2, tmm * 0.38) * px, bump: Math.max(1.2, tmm * 0.45) * px,
+    arrowL: tmm * 0.6 * px, arrowW: tmm * 0.2 * px, gap: tmm * 1.5 * px, minSide: 1.2 * px, tapSide: Math.max(3, tmm * 0.8) * px};
 }
+
 function rectPx(m, dr){
   const [a, b] = m.p;
   return {x0: Math.min(a[0], b[0]) * dr.w, y0: Math.min(a[1], b[1]) * dr.h, x1: Math.max(a[0], b[0]) * dr.w, y1: Math.max(a[1], b[1]) * dr.h};
@@ -831,50 +856,53 @@ function leaderGeom(r, L, label, M){
   return {line, arrow, text: {x: (L[0] + E[0]) / 2, y: L[1] - M.text * 0.22, size: M.text},
     box: {x0: Math.min(L[0], E[0]), x1: Math.max(L[0], E[0]), y0: L[1] - M.text * 1.25, y1: L[1] + M.lw * 2}};
 }
-function markPrims(m, kind, label, dr, M, alpha, withLabel){
-  const color = kind === 'beacon' ? COL.axis : COL.defect, P = [];
+function markPrims(m, kind, label, dr, M, alpha, withLabel, color){
+  color = color || (kind === 'beacon' ? COL.axis : COL.defect);
+  const P = [];
   if(m.t === 'r'){
     const r = rectPx(m, dr);
-    P.push({type: 'path', d: hatchPath(r, M.hatch), stroke: color, w: M.lw * 0.7, alpha});
+    P.push({type: 'path', d: hatchPath(r, M.hatch), stroke: color, w: M.thin, alpha});
     P.push({type: 'path', d: cloudPath(r, M.bump), stroke: color, w: M.lw, alpha});
     if(withLabel && label && m.lab){
       const g = leaderGeom(r, [m.lab[0] * dr.w, m.lab[1] * dr.h], label, M);
-      P.push({type: 'path', d: g.line, stroke: color, w: M.lw, alpha});
+      P.push({type: 'path', d: g.line, stroke: color, w: M.thin, alpha});
       if(g.arrow) P.push({type: 'path', d: g.arrow, fill: color, alpha});
-      P.push({type: 'text', x: g.text.x, y: g.text.y, size: g.text.size, str: String(label), color, italic: true, align: 'center', alpha});
+      P.push({type: 'text', x: g.text.x, y: g.text.y, size: g.text.size, str: String(label), color, italic: true, light: true, align: 'center', alpha});
     }
     return P;
   }
   const pts = m.p.map(q => [q[0] * dr.w, q[1] * dr.h]);
-  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity;
-  for(const [x, y] of pts){ bx0 = Math.min(bx0, x); by0 = Math.min(by0, y); bx1 = Math.max(bx1, x); }
+  let by0 = Infinity, bx1 = -Infinity;
+  for(const [x, y] of pts){ by0 = Math.min(by0, y); bx1 = Math.max(bx1, x); }
   if(m.t === 'p'){
     const [x, y] = pts[0], R = M.text * 0.34;
-    P.push({type: 'path', d: circlePath(x, y, R), stroke: color, w: M.lw * 1.2, fill: color, fillAlpha: 0.18, alpha});
+    P.push({type: 'path', d: circlePath(x, y, R), stroke: color, w: M.lw, fill: color, fillAlpha: 0.18, alpha});
     P.push({type: 'path', d: circlePath(x, y, R * 0.3), fill: color, alpha});
     bx1 = x + R; by0 = y - R;
   } else {
     const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join(' ') + (m.t === 'a' ? ' Z' : '');
-    P.push({type: 'path', d, stroke: color, w: M.lw * (m.t === 'a' ? 1.2 : 1.8), fill: m.t === 'a' ? color : null, fillAlpha: 0.16, alpha});
+    P.push({type: 'path', d, stroke: color, w: M.lw * (m.t === 'a' ? 1 : 1.4), fill: m.t === 'a' ? color : null, fillAlpha: 0.16, alpha});
   }
   if(withLabel && label){
     const fs = M.text * 0.78, hh = fs * 1.5, w = Math.max(hh, String(label).length * fs * 0.62 + fs * 0.8);
     const x = bx1 + fs * 0.2, y = by0 - hh - fs * 0.1;
-    P.push({type: 'path', d: pillPath(x, y, w, hh), stroke: color, w: M.lw, fill: '#ffffff', fillAlpha: 1, alpha});
-    P.push({type: 'text', x: x + w / 2, y: y + hh * 0.72, size: fs, str: String(label), color, bold: true, align: 'center', alpha});
+    P.push({type: 'path', d: pillPath(x, y, w, hh), stroke: color, w: M.thin, fill: '#ffffff', fillAlpha: 1, alpha});
+    P.push({type: 'text', x: x + w / 2, y: y + hh * 0.72, size: fs, str: String(label), color, align: 'center', alpha});
   }
   return P;
 }
+
 function itemPrims(kind, marks, label, dr, opts = {}){
   const M = sheetMetrics(dr), alpha = opts.faint ? 0.45 : 1, out = [];
   let labeled = false;
   for(const m of marks || []){
     const wl = m.t === 'r' ? true : !labeled;
     if(m.t !== 'r') labeled = true;
-    out.push(...markPrims(m, kind, label, dr, M, alpha, wl));
+    out.push(...markPrims(m, kind, label, dr, M, alpha, wl, opts.color));
   }
   return out;
 }
+
 const p2dCache = new Map();
 function p2d(d){ let p = p2dCache.get(d); if(!p){ p = new Path2D(d); if(p2dCache.size > 4000) p2dCache.clear(); p2dCache.set(d, p); } return p; }
 function paintPrims(ctx, prims){
@@ -887,12 +915,13 @@ function paintPrims(ctx, prims){
       if(p.stroke){ ctx.globalAlpha = a; ctx.strokeStyle = p.stroke; ctx.lineWidth = p.w; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke(P); }
     } else if(p.type === 'text'){
       ctx.globalAlpha = a; ctx.fillStyle = p.color;
-      ctx.font = `${p.italic ? 'italic ' : ''}${p.bold ? '700' : '400'} ${p.size}px ${MARK_FONT}`;
+      ctx.font = `${p.italic ? 'italic ' : ''}${p.bold ? '700' : p.light ? '300' : '400'} ${p.size}px ${p.light ? '"Helvetica Neue",Arial,sans-serif' : MARK_FONT}`;
       ctx.textAlign = p.align || 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(p.str, p.x, p.y);
     }
   }
   ctx.globalAlpha = 1;
 }
+
 function marksBoxPx(marks, label, dr){
   const M = sheetMetrics(dr); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   const ext = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
@@ -942,7 +971,7 @@ function cropRect(iw, ih, marks){
   const sx = Math.max(0, Math.min(iw - cw, (bx0 + bx1) / 2 - cw / 2)), sy = Math.max(0, Math.min(ih - ch, (by0 + by1) / 2 - ch / 2));
   return {sx, sy, cw, ch};
 }
-async function renderCrop(canvas, dr, marks, kind, label, outW, ink){
+async function renderCrop(canvas, dr, marks, kind, label, outW, ink, color){
   const im = await drawingImage(dr.id);
   const b = marksBoxPx(marks, label, dr); if(!b) return null;
   const c = cropRectPx(im.w, im.h, b);
@@ -954,10 +983,11 @@ async function renderCrop(canvas, dr, marks, kind, label, outW, ink){
   x.drawImage(im.img, c.sx, c.sy, c.cw, c.ch, 0, 0, outW, outH);
   x.save(); x.setTransform(k, 0, 0, k, -c.sx * k, -c.sy * k);
   if(ink && ink.length) drawInk(x, ink);
-  paintPrims(x, itemPrims(kind, marks, label, dr));
+  paintPrims(x, itemPrims(kind, marks, label, dr, {color}));
   x.restore();
   return canvas;
 }
+
 
 async function renderMap(dr, o, maxSide, ink, layers = {defects: true, beacons: true}){
   const im = await drawingImage(dr.id);
@@ -967,10 +997,11 @@ async function renderMap(dr, o, maxSide, ink, layers = {defects: true, beacons: 
   x.drawImage(im.img, 0, 0, w, hh);
   x.setTransform(w / im.w, 0, 0, hh / im.h, 0, 0);
   if(ink && ink.length) drawInk(x, ink);
-  for(const it of planItems(o, dr.id)) if(it.kind === 'beacon' ? layers.beacons : layers.defects) paintPrims(x, itemPrims(it.kind, it.ref.plan.m, it.label, dr));
+  for(const it of planItems(o, dr.id)) if(it.kind === 'beacon' ? layers.beacons : layers.defects) paintPrims(x, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {color: markColor(it.kind, it.ref)}));
   x.setTransform(1, 0, 0, 1, 0, 0);
   return c;
 }
+
 
 
 /* ===================== Полевые записи на чертеже (рукописный слой) ===================== */
@@ -985,12 +1016,15 @@ function ui(){
   if(!db.ui) db.ui = {};
   const u = db.ui, def = (k, v) => { if(u[k] === undefined) u[k] = v; };
   def('tool', 'hand'); def('color', {}); def('width', {});
-  def('eraser', 'object'); def('straight', true); def('stylus', false); def('showInk', true); def('showMarks', true); def('textSize', 1);
+  def('eraser', 'part'); def('straight', true); def('stylus', false); def('showInk', true); def('showMarks', true); def('textSize', 1);
+  def('defColor', '#d81f26'); def('beaColor', '#1d4f7a');
+  if(!u.v6){ u.eraser = 'part'; u.v6 = 1; }
   const dc = {pen: '#c8202f', marker: '#e8c200', pencil: '#14202a', text: '#c8202f'};
   for(const k in dc) if(!u.color[k]) u.color[k] = dc[k];
   for(const k of ['pen', 'marker', 'pencil']) if(u.width[k] === undefined) u.width[k] = 1;
   return u;
 }
+
 const inkCache = new Map();
 async function loadInk(dr){
   if(inkCache.has(dr.id)) return inkCache.get(dr.id);
@@ -1074,16 +1108,34 @@ function snapAngle(a, z){
   const dx = z[0] - a[0], dy = z[1] - a[1], len = Math.hypot(dx, dy), ang = Math.atan2(dy, dx), near = Math.round(ang / (Math.PI / 4)) * (Math.PI / 4);
   return Math.abs(ang - near) < 4 * Math.PI / 180 ? [a[0] + len * Math.cos(near), a[1] + len * Math.sin(near)] : z;
 }
-function asLine(pts, s, strict){
-  if(pts.length < 2) return null;
-  const a = pts[0], z = pts[pts.length - 1], dx = z[0] - a[0], dy = z[1] - a[1], len = Math.hypot(dx, dy);
-  const Ls = len * s; if(Ls < (strict ? 30 : 16)) return null;
-  let m = 0; for(const p of pts) m = Math.max(m, Math.abs(dy * p[0] - dx * p[1] + z[0] * a[1] - z[1] * a[0]) / len);
-  const tol = strict ? Math.max(3.5, 0.035 * Ls) : Math.max(6, 0.08 * Ls);
-  if(m * s > tol || plen(pts) > len * 1.25) return null;
-  const e = snapAngle(a, z);
-  return {k: 'line', p: [a[0], a[1], e[0], e[1]]};
+// убрать «дрожание» пера у начала и в конце линии (касание и удержание)
+function trimEnds(pts, s){
+  if(pts.length < 4) return pts;
+  const r = 5 / s, a = pts[0], z = pts[pts.length - 1];
+  let i = 1; while(i < pts.length - 1 && Math.hypot(pts[i][0] - a[0], pts[i][1] - a[1]) < r) i++;
+  let j = pts.length - 2; while(j >= i && Math.hypot(pts[j][0] - z[0], pts[j][1] - z[1]) < r) j--;
+  return [a, ...pts.slice(i, j + 1), z];
 }
+function asLine(pts0, s, strict){
+  if(pts0.length < 2) return null;
+  const pts = trimEnds(pts0, s), n = pts.length;
+  let mx = 0, my = 0; for(const p of pts){ mx += p[0]; my += p[1]; } mx /= n; my /= n;
+  let sxx = 0, syy = 0, sxy = 0;
+  for(const p of pts){ const dx = p[0] - mx, dy = p[1] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+  const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy), ux = Math.cos(ang), uy = Math.sin(ang);
+  const proj = p => (p[0] - mx) * ux + (p[1] - my) * uy, perp = p => Math.abs(-(p[0] - mx) * uy + (p[1] - my) * ux);
+  let t0 = Infinity, t1 = -Infinity; for(const p of pts){ const t = proj(p); t0 = Math.min(t0, t); t1 = Math.max(t1, t); }
+  const E = t1 - t0, Es = E * s; if(Es < (strict ? 30 : 16)) return null;
+  let m = 0; for(const p of pts){ const t = proj(p); if(t > t0 + E * 0.06 && t < t1 - E * 0.06) m = Math.max(m, perp(p)); }
+  const tol = strict ? Math.max(4, 0.035 * Es) : Math.max(7, 0.08 * Es);
+  if(m * s > tol) return null;
+  if(plen(rdp(pts, 1.5 / s)) > E * 1.2) return null;           // нет возврата назад
+  const ta = proj(pts[0]), tz = proj(pts[n - 1]);
+  if(Math.abs(tz - ta) < E * 0.8) return null;                  // концы — на краях, а не петля
+  const A = [mx + ux * ta, my + uy * ta], Z = snapAngle(A, [mx + ux * tz, my + uy * tz]);
+  return {k: 'line', p: [A[0], A[1], Z[0], Z[1]]};
+}
+
 function polyErr(pts, poly, closed){
   let sum = 0; for(const p of pts) sum += distPolyline(p[0], p[1], poly, closed);
   return sum / pts.length;
@@ -1137,9 +1189,11 @@ function asRect(q){
   for(const p of q){ const u = p[0] * c + p[1] * s, v = -p[0] * s + p[1] * c; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
   return [[u0, v0], [u1, v0], [u1, v1], [u0, v1]].map(([u, v]) => [u * c - v * s, u * s + v * c]);
 }
-function recognize(pts, s){
-  if(pts.length < 3 || plen(pts) * s < 20) return null;
-  const line = asLine(pts, s, false); if(line) return line;
+function recognize(pts0, s){
+  if(pts0.length < 3 || plen(pts0) * s < 20) return null;
+  const line = asLine(pts0, s, false); if(line) return line;
+  const pts = rdp(trimEnds(pts0, s), 1 / s);
+  if(pts.length < 3) return null;
   const b = bboxPts(pts), diag = Math.hypot(b.x1 - b.x0, b.y1 - b.y0), a = pts[0], z = pts[pts.length - 1];
   const closed = Math.hypot(a[0] - z[0], a[1] - z[1]) < Math.max(25 / s, diag * 0.22);
   const eps = Math.max(6 / s, diag * 0.07);
@@ -1159,6 +1213,7 @@ function recognize(pts, s){
   if(n >= 3 && n <= 8 && polyErr(pts, poly, true) < diag * 0.035) return {k: 'poly', p: poly.flat(), z: 1};
   return null;
 }
+
 
 /* --- значки инструментов --- */
 const svgI = d => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -1182,14 +1237,15 @@ async function openPlan(cfg){
   try { im = await drawingImage(dr.id); strokes = (await loadInk(dr)).slice(); }
   catch(e) { busy(null); toast('Чертёж не открылся: ' + e.message, true); return; }
   busy(null);
-  const iw = im.w, ih = im.h, img = im.img, work = cfg.mode === 'work', M = sheetMetrics(dr);
+  const iw = im.w, ih = im.h, img = im.img, work = cfg.mode === 'work';
+  let M = sheetMetrics(dr);
   // phase: ink — записи; mark — новая или редактируемая отметка (draft); select — выделена отметка на листе (sel)
   let phase = work ? 'ink' : 'mark', draft = null, sel = null;
-  const startDraft = (kind, label, id, marks) => {
-    draft = {kind, label, id: id || null, marks: clone(marks || [])};
+  const startDraft = (kind, label, id, marks, color) => {
+    draft = {kind, label, id: id || null, marks: clone(marks || []), color: color || (kind === 'beacon' ? u.beaColor : u.defColor)};
     draft.step = draft.marks.length ? 'adjust' : 'draw';
   };
-  if(!work) startDraft(cfg.self.kind, cfg.self.label, cfg.self.id, cfg.marks);
+  if(!work) startDraft(cfg.self.kind, cfg.self.label, cfg.self.id, cfg.marks, cfg.self.color);
   let undoS = [], redoS = [], persistT = 0, persistPending = false, pop = null, hintT = 0;
   const body = h(`<div class="plan-wrap"><canvas class="plan-cv" aria-label="Чертёж"></canvas><div class="plan-hint" hidden></div></div>`);
   const cv = $('canvas', body), hint = $('.plan-hint', body), ctx = cv.getContext('2d');
@@ -1256,7 +1312,7 @@ async function openPlan(cfg){
     m.lab = nrm(dirPoint(rectPx(m, dr), k)); commitEdit();
   }
   function startSelect(hit){
-    sel = {it: hit.it, mi: hit.mi, orig: clone(hit.it.ref.plan), changed: false};
+    sel = {it: hit.it, mi: hit.mi, orig: clone(hit.it.ref.plan), origMc: hit.it.ref.mc, changed: false};
     phase = 'select'; closePop(); drawFoot(); schedule();
   }
   function endSelect(){ phase = 'ink'; sel = null; drawFoot(); toolHint(); schedule(); }
@@ -1279,32 +1335,47 @@ async function openPlan(cfg){
       return;
     }
     if(phase === 'mark'){
-      const isB = draft.kind === 'beacon', m0 = draft.marks[0];
+      const isB = draft.kind === 'beacon', m0 = draft.marks[0], what = isB ? 'маяка' : 'дефекта';
       if(draft.step === 'draw'){
-        foot.innerHTML = `<div class="mk-bar"><button type="button" class="btn" data-mk-cancel>Отмена</button>${!work && cfg.marks && cfg.marks.length ? '<button type="button" class="btn danger" data-mk-remove>Убрать отметку</button>' : ''}</div>`;
-        showHint((isB ? 'Коснитесь места установки маяка.' : 'Растяните прямоугольник по месту дефекта. Короткое касание — маленькая отметка.') + navTail());
+        foot.innerHTML = `<div class="mk-bar">${markTools(draft.color)}<button type="button" class="btn" data-mk-cancel>Отмена</button>${!work && cfg.marks && cfg.marks.length ? '<button type="button" class="btn danger" data-mk-remove>Убрать отметку</button>' : ''}</div>`;
+        showHint(`Растяните прямоугольник по месту ${what}. Короткое касание — маленькая отметка.` + navTail());
       } else {
-        foot.innerHTML = `<div class="mk-bar">${!isB && m0 && m0.t === 'r' ? dirBtns() : ''}<button type="button" class="btn" data-mk-again>Заново</button>
+        foot.innerHTML = `<div class="mk-bar">${m0 && m0.t === 'r' ? dirBtns() : ''}${markTools(draft.color)}<button type="button" class="btn" data-mk-again>Заново</button>
           ${work ? '<button type="button" class="btn" data-mk-cancel>Отмена</button>' : '<button type="button" class="btn danger" data-mk-remove>Убрать</button>'}
           <button type="button" class="btn primary" data-mk-done>Готово</button></div>`;
-        showHint((isB ? 'Перетащите метку или коснитесь нового места.'
-          : m0 && m0.t === 'r' ? 'Коснитесь места для номера или выберите направление выноски. Прямоугольник и его углы можно перетаскивать.'
+        showHint((m0 && m0.t === 'r' ? `Коснитесь места для ${isB ? 'наименования маяка' : 'номера'} или выберите направление выноски. Прямоугольник и его углы можно перетаскивать.`
           : 'Отметку можно перетащить. «Заново» — нарисовать облаком.') + navTail());
       }
       return;
     }
     const m = sel && sel.it.ref.plan ? sel.it.ref.plan.m[sel.mi] : null;
-    foot.innerHTML = `<div class="mk-bar">${m && m.t === 'r' ? dirBtns() : ''}<button type="button" class="btn" data-sel-open>Открыть</button>
+    foot.innerHTML = `<div class="mk-bar">${m && m.t === 'r' ? dirBtns() : ''}${markTools(markColor(sel.it.kind, sel.it.ref))}<button type="button" class="btn" data-sel-open>Открыть</button>
       <button type="button" class="btn danger" data-sel-del>Убрать</button><button type="button" class="btn" data-sel-revert ${sel && sel.changed ? '' : 'disabled'}>Вернуть</button>
       <button type="button" class="btn primary" data-sel-done>Готово</button></div>`;
-    showHint(`${sel.it.kind === 'beacon' ? 'Маяк ' : 'Дефект № '}${sel.it.label}: перетащите отметку, её углы или номер; коснитесь листа — номер переместится туда.`);
+    showHint(`${sel.it.kind === 'beacon' ? 'Маяк ' : 'Дефект № '}${sel.it.label}: перетащите отметку, её углы или ${sel.it.kind === 'beacon' ? 'наименование' : 'номер'}; коснитесь листа — ${sel.it.kind === 'beacon' ? 'наименование' : 'номер'} переместится туда.`);
+  }
+  function markTools(color){
+    return `<button type="button" class="tb" data-pop="mcolor" aria-label="Цвет отметки" title="Цвет отметки"><span class="swatch" style="background:${color}"></span></button>`
+      + `<button type="button" class="tb tb-txt" data-pop="msize" aria-label="Размер выноски и номера" title="Размер выноски и номера">Aa</button>`;
+  }
+  function setMarkColor(c){
+    if(phase === 'select' && sel){ sel.it.ref.mc = c; if(sel.it.kind === 'beacon') u.beaColor = c; else u.defColor = c; commitEdit(); }
+    else if(draft){ draft.color = c; if(draft.kind === 'beacon') u.beaColor = c; else u.defColor = c; save(); drawFoot(); schedule(); }
   }
   function closePop(){ if(pop){ pop.remove(); pop = null; } }
   function openPop(kind){
     if(pop && pop.dataset.kind === kind){ closePop(); return; }
     closePop();
     pop = h(`<div class="pop" data-kind="${kind}"></div>`);
-    if(kind === 'opts'){
+    if(kind === 'mcolor'){
+      const c0 = phase === 'select' && sel ? markColor(sel.it.kind, sel.it.ref) : draft ? draft.color : COL.defect;
+      pop.innerHTML = `<div class="pop-title">Цвет отметки</div><div class="pop-row">${MARK_COLORS.map(c => `<button type="button" class="sw${c0 === c ? ' on' : ''}" data-mc="${c}" style="background:${c}" aria-label="Цвет ${c}"></button>`).join('')}
+        <label class="sw sw-any" title="Другой цвет" aria-label="Другой цвет"><input type="color" data-mc-any value="${c0}"></label></div>`;
+    } else if(kind === 'msize'){
+      const cur0 = +dr.textMM || 0;
+      pop.innerHTML = `<div class="pop-title">Высота номера на листе</div><div class="pop-row">${[0, 2.5, 3.5, 5, 7, 10, 14].map(v => `<button type="button" class="wd txt${cur0 === v ? ' on' : ''}" data-msize="${v}">${v ? fmtNum(v) + ' мм' : 'Авто, ' + fmtNum(Math.round(M.auto * 10) / 10) + ' мм'}</button>`).join('')}</div>
+        <p class="hint" style="margin:10px 0 0">Меняет номер, выноску, облако и штриховку всех отметок на этом листе — и в выгрузке тоже. Для мелкого масштаба чертежа берите крупнее.</p>`;
+    } else if(kind === 'opts'){
       let t = u.tool;
       if(t === 'hand'){ t = u.tool = 'pen'; save(); drawFoot(); }
       if(t === 'eraser'){
@@ -1325,6 +1396,7 @@ async function openPlan(cfg){
         <label class="menu-item"><input type="checkbox" data-set="showInk" ${u.showInk ? 'checked' : ''}> Показывать записи</label>
         <label class="menu-item"><input type="checkbox" data-set="showMarks" ${u.showMarks ? 'checked' : ''}> Показывать отметки дефектов и маяков</label>
         ${o.drawings.length > 1 ? '<button type="button" class="menu-item" data-act="sheets">Другой лист…</button>' : ''}
+        <button type="button" class="menu-item" data-act="msize">Размер отметок на листе: ${dr.textMM ? fmtNum(+dr.textMM) + ' мм' : 'авто'}</button>
         <button type="button" class="menu-item" data-act="pdf">Выгрузить лист в PDF (${esc(fmtLabel(dr))})</button>
         <button type="button" class="menu-item danger" data-act="clear" ${strokes.length ? '' : 'disabled'}>Стереть все записи на листе</button>`;
     }
@@ -1332,6 +1404,8 @@ async function openPlan(cfg){
   }
   body.addEventListener('click', async e => {
     if(!pop || !pop.contains(e.target)) return;
+    const mc = e.target.closest('[data-mc]'); if(mc){ setMarkColor(mc.dataset.mc); closePop(); return; }
+    const ms = e.target.closest('[data-msize]'); if(ms){ dr.textMM = +ms.dataset.msize || null; save(); M = sheetMetrics(dr); closePop(); render(); schedule(); return; }
     const er = e.target.closest('[data-er]'); if(er){ u.eraser = er.dataset.er; save(); closePop(); toolHint(); return; }
     const w = e.target.closest('[data-w]'); if(w){ u.width[u.tool] = +w.dataset.w; save(); closePop(); drawFoot(); return; }
     const ts = e.target.closest('[data-ts]'); if(ts){ u.textSize = +ts.dataset.ts; save(); closePop(); return; }
@@ -1343,6 +1417,7 @@ async function openPlan(cfg){
       const a = act.dataset.act; closePop();
       if(a === 'clear'){ if(await ask('Стереть все записи на этом листе? Отменить можно кнопкой «Отменить».', {ok: 'Стереть', danger: true})) commitInk([]); }
       else if(a === 'pdf'){ flushInk(); sheetsPdfDialog([dr]); }
+      else if(a === 'msize') openPop('msize');
       else if(a === 'sheets'){
         pop = h(`<div class="pop" data-kind="sheets"><div class="pop-title">Другой лист</div>${o.drawings.map(d => `<button type="button" class="menu-item" data-sheet="${d.id}"${d.id === dr.id ? ' disabled' : ''}>${esc(d.name)}</button>`).join('')}</div>`);
         body.append(pop);
@@ -1351,6 +1426,7 @@ async function openPlan(cfg){
   });
   body.addEventListener('change', e => {
     if(!pop || !pop.contains(e.target)) return;
+    if(e.target.hasAttribute('data-mc-any')){ setMarkColor(e.target.value); closePop(); return; }
     if(e.target.type === 'color'){ u.color[pop.dataset.key] = e.target.value; save(); closePop(); drawFoot(); return; }
     const k = e.target.dataset.set; if(!k) return;
     u[k] = e.target.checked; save();
@@ -1378,9 +1454,9 @@ async function openPlan(cfg){
     if(e.target.closest('[data-mk-again]')){ draft.marks = []; draft.step = 'draw'; drawFoot(); schedule(); return; }
     if(e.target.closest('[data-mk-done]')){
       if(!draft || !draft.marks.length) return;
-      if(!work){ cfg.onDone(draft.marks); closeTop(false); return; }
-      const m = draft.marks, kind = draft.kind; phase = 'ink'; draft = null; drawFoot(); showHint('', 0); schedule();
-      if(kind === 'beacon') beaconForm(null, {plan: {d: dr.id, m}}, {fromPlan: true}); else defectForm(null, {plan: {d: dr.id, m}});
+      if(!work){ cfg.onDone(draft.marks, draft.color); closeTop(false); return; }
+      const m = draft.marks, kind = draft.kind, mc = draft.color; phase = 'ink'; draft = null; drawFoot(); showHint('', 0); schedule();
+      if(kind === 'beacon') beaconForm(null, {plan: {d: dr.id, m}, mc}, {fromPlan: true}); else defectForm(null, {plan: {d: dr.id, m}, mc});
       return;
     }
     if(e.target.closest('[data-sel-open]')){ const it = sel.it; endSelect(); openItem(it); return; }
@@ -1390,7 +1466,7 @@ async function openPlan(cfg){
       const pl = it.ref.plan; pl.m.splice(sel.mi, 1); if(!pl.m.length) it.ref.plan = null;
       it.ref.updated = Date.now(); save(); render(); endSelect(); toast('Отметка убрана'); return;
     }
-    if(e.target.closest('[data-sel-revert]')){ sel.it.ref.plan = clone(sel.orig); sel.changed = false; save(); render(); drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-sel-revert]')){ sel.it.ref.plan = clone(sel.orig); sel.it.ref.mc = sel.origMc; sel.changed = false; save(); render(); drawFoot(); schedule(); return; }
     if(e.target.closest('[data-sel-done]')){ endSelect(); return; }
   });
   node.beforeClose = () => {
@@ -1431,14 +1507,14 @@ async function openPlan(cfg){
     if(u.showMarks || phase !== 'ink' || !work){
       for(const it of planItems(o, dr.id)){
         if(draft && draft.id && it.kind === draft.kind && it.ref.id === draft.id) continue;
-        paintPrims(ctx, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {faint: phase === 'mark'}));
+        paintPrims(ctx, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {faint: phase === 'mark', color: markColor(it.kind, it.ref)}));
       }
     }
     if(phase === 'mark'){
       let ms = draft.marks;
       if(g && g.kind === 'rect') ms = [previewRect(g.a, g.b)];
       if(g && g.kind === 'place' && g.cur) ms = [{t: 'p', p: [nrm(g.cur)]}];
-      paintPrims(ctx, itemPrims(draft.kind, ms, draft.label, dr));
+      paintPrims(ctx, itemPrims(draft.kind, ms, draft.label, dr, {color: draft.color}));
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const T = target();
@@ -1578,7 +1654,7 @@ async function openPlan(cfg){
     const touchNav = u.stylus && e.pointerType === 'touch';
     if(phase === 'mark' || phase === 'select'){
       if(touchNav) return {...base, kind: 'pan', tx, ty, tapSel: phase === 'select'};
-      if(phase === 'mark' && draft.step === 'draw') return draft.kind === 'beacon' ? {...base, kind: 'place', cur: toImg(p)} : {...base, kind: 'rect', a: toImg(p), b: toImg(p)};
+      if(phase === 'mark' && draft.step === 'draw') return {...base, kind: 'rect', a: toImg(p), b: toImg(p)};
       const hh = handleAt(p);
       if(hh){ const T = target(); return {...base, kind: 'edit', h: hh, orig: clone(T.marks[T.mi]), start: toImg(p)}; }
       return {...base, kind: 'tap', tx, ty};
@@ -1607,9 +1683,9 @@ async function openPlan(cfg){
         continue;
       }
       const ip = toImg(q), l = g.pts[g.pts.length - 1];
-      if(Math.hypot(ip[0] - l[0], ip[1] - l[1]) * s >= 1) g.pts.push(ip);
+      if(Math.hypot(ip[0] - l[0], ip[1] - l[1]) * s >= 1.5) g.pts.push(ip);
     }
-    if(Math.hypot(p.x - g.anchor.x, p.y - g.anchor.y) > 3){
+    if(Math.hypot(p.x - g.anchor.x, p.y - g.anchor.y) > 5){
       g.anchor = p; clearTimeout(g.timer);
       if(!g.snapped){ const gg = g; g.timer = setTimeout(() => trySnap(gg), 450); }
     }
@@ -1639,7 +1715,8 @@ async function openPlan(cfg){
     if(gg.kind === 'text'){
       if(gg.moved) return;
       const [x, y] = toImg(p);
-      const txt = await dialog({message: 'Текст на листе (например, размер или пометка)', input: true, ok: 'Добавить'});
+      const txt = await dialog({message: 'Текст на листе (например, размер или пометка)', input: true, ok: 'Добавить',
+        inputHint: 'Если клавиатура не появилась — коснитесь поля пальцем. Пером можно писать прямо в поле.'});
       if(txt && txt.trim()) commitInk([...strokes, roundSt({t: 'text', k: 'text', c: u.color.text, x, y, txt: txt.trim(), fs: TEXT_SIZES[u.textSize] / s, w: 0})]);
       return;
     }
@@ -1836,7 +1913,7 @@ async function buildSheetsPdfVector(L, o, drs, opt){
     for(const [kind, tag, name, on] of [['defect', 'OCdef', 'Дефекты', opt.defects], ['beacon', 'OCbeac', 'Маяки', opt.beacons]]){
       const its = items.filter(it => it.kind === kind);
       if(!on || !its.length) continue;
-      layer(tag, name, () => { for(const it of its) pdfPrims(L, pg, itemPrims(it.kind, it.ref.plan.m, it.label, dr), k, H, fonts); });
+      layer(tag, name, () => { for(const it of its) pdfPrims(L, pg, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {color: markColor(it.kind, it.ref)}), k, H, fonts); });
     }
   }
   if(order.length) out.catalog.set(L.PDFName.of('OCProperties'), cx.obj({OCGs: order, D: {Order: order, ON: order, BaseState: 'ON'}}));
@@ -1868,28 +1945,32 @@ async function exportSheetsPdf(drs, opt){
     if(!u8){ u8 = await buildSheetsPdfRaster(o, drs, opt); note = note || 'модуль сборки PDF недоступен'; }
     busy(null);
     if(note) toast('Лист собран картинкой, без слоёв: ' + note, true);
-    const suffix = opt.notes && (opt.defects || opt.beacons) ? 'слои' : opt.notes ? 'записи' : 'дефекты';
+    const suffix = [opt.defects && 'дефекты', opt.beacons && 'маяки', opt.notes && 'записи'].filter(Boolean).join('+') || 'чертёж';
     offerFile(drs.length === 1 ? `${safeName(drs[0].name)} — ${suffix} ${today()}.pdf` : `Чертежи_${safeName(o.name)}_${suffix}_${today()}.pdf`, u8, 'application/pdf', {replace: true});
   } catch(e) { busy(null); toast('PDF не сформировался: ' + e.message, true); }
 }
 
 function sheetsPdfDialog(drs){
   const o = cur(); if(!o || !drs.length){ toast('Чертежей нет', true); return; }
-  const hasInk = drs.some(d => d.inkN), hasMarks = drs.some(d => planItems(o, d.id).length);
+  const has = k => drs.some(d => planItems(o, d.id).some(it => it.kind === k)), hasInk = drs.some(d => d.inkN);
+  const hd = has('defect'), hb = has('beacon');
   const body = h(`<div>
     <p style="margin-top:0">${drs.length === 1 ? `Лист «${esc(drs[0].name)}»` : `Все листы объекта: ${drs.length}`}. Каждый лист выгружается в своём исходном формате.</p>
     <div class="small muted" style="margin-bottom:6px">${drs.map(d => `${esc(d.name)} — ${esc(fmtLabel(d))}${d.src ? '' : ' (из изображения)'}`).join('<br>')}</div>
     <div class="lbl" style="margin-top:12px">Что выгрузить</div>
-    <label class="check"><input type="radio" name="pdfwhat" value="all" checked> Всё сразу — отдельными слоями</label>
-    <label class="check"><input type="radio" name="pdfwhat" value="defects"> Только дефекты и маяки${hasMarks ? '' : ' — отметок пока нет'}</label>
-    <label class="check"><input type="radio" name="pdfwhat" value="notes"> Только полевые записи${hasInk ? '' : ' — записей пока нет'}</label>
-    <label class="check"><input type="checkbox" data-bare> Без подложки чертежа — только отметки и записи</label>
-    <p class="hint">В PDF отметки и записи лежат на слоях «Дефекты», «Маяки», «Полевые записи»: в Acrobat и при импорте PDF в AutoCAD их можно включать и выключать по отдельности. «Без подложки» удобно накладывать на исходный чертёж.</p></div>`);
+    <label class="check"><input type="checkbox" data-w="defects" ${hd ? 'checked' : 'disabled'}> Дефекты${hd ? '' : ' — отметок нет'}</label>
+    <label class="check"><input type="checkbox" data-w="beacons" ${hb ? 'checked' : 'disabled'}> Маяки${hb ? '' : ' — отметок нет'}</label>
+    <label class="check"><input type="checkbox" data-w="notes" ${hasInk ? 'checked' : 'disabled'}> Полевые записи${hasInk ? '' : ' — записей нет'}</label>
+    <label class="check"><input type="checkbox" data-bare> Без подложки чертежа — только выбранное</label>
+    <p class="hint">Оставьте одну галочку, чтобы выгрузить дефекты, маяки или записи отдельным файлом. При нескольких — каждый вид данных ляжет в PDF своим слоем («Дефекты», «Маяки», «Полевые записи»), их можно включать по отдельности в Acrobat и при импорте в AutoCAD.</p></div>`);
   openSheet('Листы в PDF', body, btn('Сформировать', 'primary', () => {
-    const what = (body.querySelector('[name="pdfwhat"]:checked') || {}).value || 'all';
-    exportSheetsPdf(drs, {notes: what !== 'defects', defects: what !== 'notes', beacons: what !== 'notes', bare: $('[data-bare]', body).checked});
+    const opt = {bare: $('[data-bare]', body).checked};
+    body.querySelectorAll('[data-w]').forEach(c => { opt[c.dataset.w] = c.checked; });
+    if(opt.bare && !opt.defects && !opt.beacons && !opt.notes){ toast('Выберите, что выгрузить', true); return; }
+    exportSheetsPdf(drs, opt);
   }));
 }
+
 
 
 /* ===================== Оси ===================== */
@@ -1938,11 +2019,19 @@ function axesOf(item){ return String(item.axesText || '').trim() || axesStr(item
 function locStr(item){ return [axesOf(item), item.locText].filter(Boolean).join(', '); }
 function paramsText(d){
   const p = [];
-  if(d.w) p.push(`ширина раскрытия ${d.w} мм`); if(d.len) p.push(`длина ${d.len} м`); if(d.depth) p.push(`глубина ${d.depth} мм`);
-  if(d.area) p.push(`площадь ${d.area} м²`); if(d.qty) p.push(`${d.qty} шт.`);
+  if(ptypeOf(d) === 'crack'){
+    if(d.w) p.push(`ширина раскрытия ${d.w} мм`); if(d.depth) p.push(`глубина распространения ${d.depth} мм`); if(d.len) p.push(`длина ${d.len} м`);
+  } else {
+    const {S, V} = calcSV(d);
+    if(d.len) p.push(`длина ${d.len} м`); if(d.wid) p.push(`ширина ${d.wid} м`); if(d.depth) p.push(`глубина ${d.depth} мм`);
+    if(S !== null) p.push(`площадь ${fmtQ(S, 3)} м²`); else if(d.area) p.push(`площадь ${d.area} м²`);
+    if(V !== null) p.push(`объём ${fmtQ(V, 4)} м³`);
+  }
+  if(d.qty) p.push(`количество ${d.qty} шт.`);
   const s = p.join(', ');
   return s ? s[0].toUpperCase() + s.slice(1) : '';
 }
+
 
 function mountAxisPicker(box, f, o, onChange){
   const ax = f.axes, axN = parseAxes(o.axesN, 'n'), axL = parseAxes(o.axesL, 'l');
@@ -2116,7 +2205,7 @@ function mountPlanField(box, f, o, dirty, self){
         <div class="btn-row" style="margin-top:8px"><button type="button" class="btn small" data-dr="${sel.id}">Изменить отметку</button><button type="button" class="btn small danger" data-clear-dr>Убрать</button></div>`
       : (ds.length === 1 ? `<button type="button" class="typebtn" data-dr="${ds[0].id}">Отметить на чертеже «${esc(ds[0].name)}»</button>` : '<p class="hint" style="margin:0">Выберите чертёж — откроется разметка.</p>')}`;
     if(sel){
-      try { await renderCrop($('canvas', box), sel, f.plan.m, self.kind, self.label(), 600, ui().showInk ? await loadInk(sel) : null); }
+      try { await renderCrop($('canvas', box), sel, f.plan.m, self.kind, self.label(), 600, ui().showInk ? await loadInk(sel) : null, f.mc); }
       catch(e) { $('.plan-prev', box).innerHTML = `<p class="hint">Не удалось показать фрагмент: ${esc(e.message)}</p>`; }
     }
   }
@@ -2127,8 +2216,8 @@ function mountPlanField(box, f, o, dirty, self){
     const id = d.dataset.dr, dr = o.drawings.find(x => x.id === id); if(!dr) return;
     if(f.plan && f.plan.d !== id && f.plan.m.length && !(await ask('Отметка на другом чертеже будет заменена. Продолжить?', {ok: 'Заменить'}))) return;
     openPlan({drawing: dr, mode: 'edit', marks: f.plan && f.plan.d === id ? clone(f.plan.m) : [],
-      self: {kind: self.kind, id: f.id || null, label: self.label()},
-      onDone: m => { f.plan = m.length ? {d: id, m} : null; dirty(); draw(); }});
+      self: {kind: self.kind, id: f.id || null, label: self.label(), color: f.mc},
+      onDone: (m, c) => { f.plan = m.length ? {d: id, m} : null; if(c) f.mc = c; dirty(); draw(); }});
   });
   draw();
 }
@@ -2168,15 +2257,36 @@ function photoViewer(id, title, onDelete){
 
 /* ===================== Дефекты ===================== */
 function blankDefect(){
-  return { axes: {n: [], l: []}, locText: '', floor: '', construction: '', element: '', typeCode: '', typeName: '', descr: '',
-    w: '', len: '', depth: '', area: '', qty: '', sev: '', photos: '', note: '', pics: [], plan: null };
+  return { axes: {n: [], l: []}, axesText: '', locText: '', floor: '', construction: '', element: '', typeCode: '', typeName: '', descr: '',
+    ptype: '', w: '', len: '', wid: '', depth: '', area: '', vol: '', qty: '', sev: '', photos: '', note: '', pics: [], plan: null, mc: '' };
 }
+function ptypeOf(d){
+  if(d.ptype) return d.ptype;
+  if(d.w) return 'crack';
+  if(d.wid || d.area) return 'other';
+  return !d.typeName || /трещ/i.test(d.typeName) ? 'crack' : 'other';
+}
+function fmtQ(v, digits){ return v === null || v === undefined ? '' : v.toLocaleString('ru-RU', {maximumFractionDigits: digits}); }
+function calcSV(d){
+  const L = num(d.len), B = num(d.wid), Hh = num(d.depth);
+  const S = L !== null && B !== null ? L * B : null;
+  return {S, V: S !== null && Hh !== null ? S * Hh / 1000 : null};
+}
+
 function paramsStr(d){
   const p = [];
-  if(d.w) p.push(`a = ${d.w} мм`); if(d.len) p.push(`L = ${d.len} м`); if(d.depth) p.push(`h = ${d.depth} мм`);
-  if(d.area) p.push(`S = ${d.area} м²`); if(d.qty) p.push(`${d.qty} шт.`);
+  if(ptypeOf(d) === 'crack'){
+    if(d.w) p.push(`a = ${d.w} мм`); if(d.depth) p.push(`h = ${d.depth} мм`); if(d.len) p.push(`L = ${d.len} м`);
+  } else {
+    const {S, V} = calcSV(d);
+    if(d.len) p.push(`L = ${d.len} м`); if(d.wid) p.push(`B = ${d.wid} м`); if(d.depth) p.push(`h = ${d.depth} мм`);
+    if(S !== null) p.push(`S = ${fmtQ(S, 3)} м²`); else if(d.area) p.push(`S = ${d.area} м²`);
+    if(V !== null) p.push(`V = ${fmtQ(V, 4)} м³`);
+  }
+  if(d.qty) p.push(`${d.qty} шт.`);
   return p.join(', ');
 }
+
 function lastNumTok(s){ const m = String(s || '').match(/(\d+)(?!.*\d)/); return m ? m[1] : null; }
 function nextPhoto(val, last){ const t = lastNumTok(val) || lastNumTok(last); return t ? String(+t + 1).padStart(t.length, '0') : null; }
 function nextDefectNo(o){ return o.defects.reduce((m, d) => Math.max(m, d.no || 0), 0) + 1; }
@@ -2197,14 +2307,9 @@ function defectForm(id, preset, opts = {}){
         <div class="sugg" data-sugg></div></div>
       <div class="field"><label for="d-ds">Описание</label>
         <textarea id="d-ds" class="inp" data-f="descr" placeholder="Характер, направление, развитие">${esc(f.descr)}</textarea></div>
-      <div class="grid3 field">
-        <div class="field"><label for="d-w">a, мм</label><input id="d-w" class="inp" data-f="w" inputmode="decimal" value="${esc(f.w)}"></div>
-        <div class="field"><label for="d-l">L, м</label><input id="d-l" class="inp" data-f="len" inputmode="decimal" value="${esc(f.len)}"></div>
-        <div class="field"><label for="d-h">h, мм</label><input id="d-h" class="inp" data-f="depth" inputmode="decimal" value="${esc(f.depth)}"></div>
-        <div class="field"><label for="d-s">S, м²</label><input id="d-s" class="inp" data-f="area" inputmode="decimal" value="${esc(f.area)}"></div>
-        <div class="field"><label for="d-q">Кол-во, шт.</label><input id="d-q" class="inp" data-f="qty" inputmode="numeric" value="${esc(f.qty)}"></div>
-      </div>
-      <p class="hint" style="margin:-6px 0 14px">a — ширина раскрытия, L — длина, h — глубина, S — площадь.</p>
+      <div class="field"><div class="lbl">Параметры</div>
+        <div class="seg" data-ptype><button type="button" data-v="crack">Трещина</button><button type="button" data-v="other">Другой дефект</button></div></div>
+      <div data-params></div>
       <div class="field"><div class="lbl">Значимость</div>
         <div class="seg" data-sev>${SEV.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${f.sev === v ? 'on' : ''}${v === 'критический' ? ' critical' : ''}">${l}</button>`).join('')}</div></div>
     </div>
@@ -2234,14 +2339,14 @@ function defectForm(id, preset, opts = {}){
   }
   tn.addEventListener('input', () => { f.typeName = tn.value; const c = db.catalog.find(x => x.name === tn.value.trim()); f.typeCode = c ? c.code : ''; drawSugg(); });
   sugg.addEventListener('click', e => {
-    const b = e.target.closest('[data-sg]'); if(b){ setType(b.dataset.sg); return; }
+    const b = e.target.closest('[data-sg]'); if(b){ setType(b.dataset.sg); autoPtype(b.dataset.sg); return; }
     if(e.target.closest('[data-sg-save]')){
       const name = tn.value.trim(); if(!name) return;
       db.catalog.push({code: '', name, group: 'Свои'}); save(); drawSugg(); toast('Добавлено в справочник, группа «Свои»');
     }
   });
   drawSugg();
-  $('[data-type]', body).onclick = () => typePicker(t => setType(t.name, t.code));
+  $('[data-type]', body).onclick = () => typePicker(t => { setType(t.name, t.code); autoPtype(t.name); });
 
   const phInput = $('[data-f="photos"]', body), phHint = $('[data-phhint]', body);
   const drawPhHint = () => { const n = nextPhoto(phInput.value, o.lastPhoto); phHint.textContent = n ? `+1 добавит ${n}` : 'Последний номер кадра запомнится после сохранения'; };
@@ -2258,11 +2363,41 @@ function defectForm(id, preset, opts = {}){
     body.querySelectorAll('[data-sev] button').forEach(x => x.classList.toggle('on', x === b));
     if(ref.node) ref.node.dirty = true;
   });
+  f.ptype = ptypeOf(f);
+  const pbox = $('[data-params]', body);
+  const fld = (k, lbl, mode = 'decimal') => `<div class="field"><label for="d-p-${k}">${lbl}</label><input id="d-p-${k}" class="inp" data-f="${k}" inputmode="${mode}" value="${esc(f[k] || '')}"></div>`;
+  function drawCalc(){
+    const c = $('[data-calc]', pbox); if(!c) return;
+    const {S, V} = calcSV(f);
+    c.innerHTML = `<span>Площадь S = <b>${S !== null ? fmtQ(S, 3) + ' м²' : '—'}</b></span><span>Объём V = <b>${V !== null ? fmtQ(V, 4) + ' м³' : '—'}</b></span>`;
+  }
+  function drawParams(){
+    body.querySelectorAll('[data-ptype] button').forEach(x => x.classList.toggle('on', x.dataset.v === f.ptype));
+    pbox.innerHTML = f.ptype === 'crack'
+      ? `<div class="grid2 field">${fld('w', 'Ширина раскрытия a, мм')}${fld('depth', 'Глубина распространения h, мм')}${fld('len', 'Длина L, м')}${fld('qty', 'Количество, шт.', 'numeric')}</div>`
+      : `<div class="grid2 field">${fld('len', 'Длина L, м')}${fld('wid', 'Ширина B, м')}${fld('depth', 'Глубина h, мм')}${fld('qty', 'Количество, шт.', 'numeric')}</div><div class="calc" data-calc></div>`;
+    drawCalc();
+  }
+  pbox.addEventListener('input', e => { const k = e.target.dataset.f; if(k){ f[k] = e.target.value; drawCalc(); } });
+  $('[data-ptype]', body).addEventListener('click', e => {
+    const b2 = e.target.closest('[data-v]'); if(!b2) return;
+    f.ptype = b2.dataset.v; drawParams(); if(ref.node) ref.node.dirty = true;
+  });
+  const autoPtype = name => {
+    if(f.w || f.wid || f.depth || f.len) return;
+    const pt = /трещ/i.test(name || '') ? 'crack' : 'other';
+    if(pt !== f.ptype){ f.ptype = pt; drawParams(); }
+  };
+  tn.addEventListener('change', () => autoPtype(tn.value));
+  const setType0 = setType;
+  drawParams();
   wirePlaceFields(body, f, o, ref, {kind: 'defect', label});
   mountPics($('[data-pics]', body), f, ref);
 
   function commit(again){
     f.typeName = String(f.typeName || '').trim();
+    if(f.ptype === 'other'){ const sv = calcSV(f); f.area = sv.S !== null ? fmtQ(sv.S, 3) : ''; f.vol = sv.V !== null ? fmtQ(sv.V, 4) : ''; }
+    else { f.area = ''; f.vol = ''; }
     if(!f.typeName && !f.descr.trim()){ toast('Впишите наименование дефекта или описание', true); return; }
     f.updated = Date.now();
     if(ex){
@@ -2464,8 +2599,9 @@ function beaconDetailBody(b, o){
 }
 function fillBeaconPreview(box, b, o){
   const dr = b.plan && o.drawings.find(x => x.id === b.plan.d); const cv = $('.plan-prev canvas', box);
-  if(dr && cv) loadInk(dr).then(ink => renderCrop(cv, dr, b.plan.m, 'beacon', b.num, 600, ui().showInk ? ink : null)).catch(() => {});
+  if(dr && cv) loadInk(dr).then(ink => renderCrop(cv, dr, b.plan.m, 'beacon', b.num, 600, ui().showInk ? ink : null, b.mc)).catch(() => {});
 }
+
 function beaconDetail(id, opts = {}){
   const o = cur(); const b = o.beacons.find(x => x.id === id); if(!b) return;
   const body = h(`<div>${beaconDetailBody(b, o)}</div>`);
@@ -2546,23 +2682,17 @@ function objectForm(opts = {}){
   const node = openSheet('Новый объект', body, btn('Создать объект', 'primary', () => {
     if(!f.name.trim()){ toast('Укажите наименование объекта', true); return; }
     const o = normalizeObject({id: uid(), created: Date.now(), ...f, name: f.name.trim()});
-    db.objects.push(o); db.currentId = o.id; save(); node.dirty = false; closeTop(false); tab = 'drawings'; render(); toast('Объект создан');
+    db.objects.push(o); save(); node.dirty = false; closeTop(false); openObject(o.id); toast('Объект создан');
   }), {trackDirty: true, replace: !!opts.replace});
 }
-function objectSwitcher(){
-  const body = h(`<div><div class="obj-list">${db.objects.map(o =>
-    `<button type="button" class="obj-item${o.id === db.currentId ? ' on' : ''}" data-id="${o.id}">${esc(o.name)}<span>${plural(o.defects.length, ['дефект','дефекта','дефектов'])}</span></button>`).join('')}</div></div>`);
-  body.addEventListener('click', e => {
-    const b = e.target.closest('[data-id]'); if(!b) return;
-    db.currentId = b.dataset.id; save(); closeTop(false); render();
-  });
-  openSheet('Объекты', body, btn('+ Новый объект', 'primary', () => objectForm({replace: true})));
-}
+function objectSwitcher(){ goHome(); }
+
 async function deleteObject(o){
   const ids = [...mediaIds([o])];
-  db.objects = db.objects.filter(x => x !== o); db.currentId = db.objects[0]?.id || null; save(); render();
+  db.objects = db.objects.filter(x => x !== o); db.currentId = null; screen = 'home'; save(); render();
   for(const id of ids) await MEDIA.del(id).catch(() => {});
 }
+
 function drawingActions(dr){
   const o = cur();
   const used = planItems(o, dr.id).length;
@@ -2670,18 +2800,21 @@ function csvCell(v){ const s = String(v ?? ''); return /[;"\n\r]/.test(s) ? '"' 
 function toCSV(rows){ return '\uFEFF' + rows.map(r => r.map(csvCell).join(';')).join('\r\n'); }
 function safeName(s){ return String(s || 'объект').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); }
 function defectsCSV(o){
-  const rows = [['№','Оси','Уточнение места','Этаж, отметка','Конструкция','Элемент','Код','Тип дефекта','Описание',
-    'a, мм','L, м','h, мм','S, м²','Кол-во, шт.','Значимость','Номера кадров','Фото в журнале, шт.','Чертёж','Примечание','Дата записи',
+  const rows = [['№','Оси','Уточнение места','Этаж, отметка','Конструкция','Элемент','Код','Наименование дефекта','Описание',
+    'Вид параметров','a, мм','h, мм','L, м','B, м','S, м²','V, м³','Кол-во, шт.','Значимость','Номера кадров','Фото в журнале, шт.','Чертёж','Примечание','Дата записи',
     'Цифр. ось от','Цифр. ось до','Букв. ось от','Букв. ось до']];
   for(const d of o.defects.slice().sort((a, b) => a.no - b.no)){
-    const n = d.axes.n || [], l = d.axes.l || [], dr = d.plan && o.drawings.find(x => x.id === d.plan.d);
+    const n = d.axes.n || [], l = d.axes.l || [], dr = d.plan && o.drawings.find(x => x.id === d.plan.d), pt = ptypeOf(d), sv = calcSV(d);
     rows.push([d.no, axesOf(d), d.locText, d.floor, d.construction, d.element, d.typeCode, d.typeName, d.descr,
-      d.w, d.len, d.depth, d.area, d.qty, d.sev, d.photos, (d.pics || []).length || '', dr ? dr.name : '', d.note,
+      pt === 'crack' ? 'трещина' : 'другой дефект', pt === 'crack' ? d.w : '', d.depth, d.len, pt === 'crack' ? '' : d.wid,
+      pt === 'crack' ? '' : (sv.S !== null ? fmtQ(sv.S, 3) : d.area), pt === 'crack' ? '' : fmtQ(sv.V, 4), d.qty,
+      d.sev, d.photos, (d.pics || []).length || '', dr ? dr.name : '', d.note,
       d.created ? new Date(d.created).toLocaleDateString('ru-RU') : '',
       n[0] || '', n[1] || n[0] || '', l[0] || '', l[1] || l[0] || '']);
   }
   return toCSV(rows);
 }
+
 function beaconsCSV(o){
   const rows = [['Маяк','Тип','Оси','Уточнение места','Этаж, отметка','Конструкция','Элемент','Дата установки','Начальный отсчёт, мм',
     'Дата замера','Отсчёт, мм','Состояние','Изменение от начала, мм','Примечание к замеру']];
@@ -2707,8 +2840,7 @@ async function buildDocx(o, op, progress){
   const {zipSync, strToU8} = window.fflate;
   const media = []; let pid = 0;
   const EMU = 635; // EMU на 1 dxa
-  const PW = 11906, PH = 16838, ML = 1134, MR = 567, MT = 850, MB = 850, FULL = PW - ML - MR; // книжный A4: поле слева 20 мм, справа 10 мм
-  const FULL_L = PH - ML - MR;
+  const PW = 16838, PH = 11906, ML = 1134, MR = 567, MT = 850, MB = 850, FULL = PW - ML - MR; // альбомный A4
   function pic(u8, w, hh, maxW, maxH){
     let ww = maxW, h2 = maxW * hh / w; if(h2 > maxH){ h2 = maxH; ww = maxH * w / hh; }
     const cx = Math.round(ww * EMU), cy = Math.round(h2 * EMU), n = media.length + 1, rid = 'rIdImg' + n;
@@ -2716,100 +2848,105 @@ async function buildDocx(o, op, progress){
     return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${pid}" name="Рисунок ${pid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${pid}" name="image${n}.jpeg"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
   }
   const R = (t, f = {}) => `<w:r><w:rPr>${f.b ? '<w:b/><w:bCs/>' : ''}${f.i ? '<w:i/><w:iCs/>' : ''}${f.sz ? `<w:sz w:val="${f.sz}"/><w:szCs w:val="${f.sz}"/>` : ''}</w:rPr><w:t xml:space="preserve">${xe(t)}</w:t></w:r>`;
-  const P = (runs, f = {}) => `<w:p><w:pPr>${f.keepNext ? '<w:keepNext/>' : ''}${f.pageBreak ? '<w:pageBreakBefore/>' : ''}<w:spacing w:before="${f.before || 0}" w:after="${f.after ?? 0}"/>${f.jc ? `<w:jc w:val="${f.jc}"/>` : ''}${f.sect || ''}</w:pPr>${runs || ''}</w:p>`;
+  const P = (runs, f = {}) => `<w:p><w:pPr>${f.keepNext ? '<w:keepNext/>' : ''}${f.pageBreak ? '<w:pageBreakBefore/>' : ''}<w:spacing w:before="${f.before || 0}" w:after="${f.after ?? 0}"/>${f.jc ? `<w:jc w:val="${f.jc}"/>` : ''}</w:pPr>${runs || ''}</w:p>`;
   const linesC = (text, f) => String(text || '').split(/\r?\n/).filter(x => x.trim()).map(x => P(R(x, f), {jc: 'center'})).join('');
   const BORD = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(k => `<w:${k} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('');
-  const tblOpen = widths => `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/><w:tblBorders>${BORD}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="57" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="57" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
-  const cell = (w, content, f = {}) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${f.span ? `<w:gridSpan w:val="${f.span}"/>` : ''}${f.shd ? `<w:shd w:val="clear" w:color="auto" w:fill="${f.shd}"/>` : ''}<w:vAlign w:val="${f.v || 'center'}"/></w:tcPr>${content || P('')}</w:tc>`;
-  const sectPortrait = `<w:sectPr><w:pgSz w:w="${PW}" w:h="${PH}"/><w:pgMar w:top="${MT}" w:right="${MR}" w:bottom="${MB}" w:left="${ML}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>`;
-  const sectLandscape = `<w:sectPr><w:pgSz w:w="${PH}" w:h="${PW}" w:orient="landscape"/><w:pgMar w:top="${MT}" w:right="${MR}" w:bottom="${MB}" w:left="${ML}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>`;
-
-  // ведомость дефектов по форме отчёта: 7 граф
-  const WC = [582, 1245, 3021, 582, 1367, 2429]; WC.push(FULL - WC.reduce((a, b) => a + b, 0));
-  const HEAD = ['№ п/п', 'Описание дефекта', 'Описание дефекта (фото/эскиз)', 'К.т.с', 'Вероятная причина возникновения', 'Рекомендации по устранению', 'Месторасположение дефекта'];
-  const defects = o.defects.slice().sort((a, b) => a.no - b.no);
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  const tblOpen = widths => `<w:tbl><w:tblPr><w:tblW w:w="${sum(widths)}" w:type="dxa"/><w:tblBorders>${BORD}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="57" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="57" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${widths.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
+  const cell = (w, content, f = {}) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${f.span ? `<w:gridSpan w:val="${f.span}"/>` : ''}<w:vAlign w:val="center"/></w:tcPr>${content || P('')}</w:tc>`;
+  const headRows = (W, heads) => [heads, heads.map((_, i) => String(i + 1))].map(row =>
+    `<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>${row.map((t, i) => cell(W[i], P(R(t, {b: true, sz: 20}), {jc: 'center'}))).join('')}</w:tr>`).join('');
+  const sectionRow = (text, W) => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cell(sum(W), P(R(text, {b: true}), {jc: 'center'}), {span: W.length})}</w:tr>`;
+  const groupByFloor = list => {
+    const useF = list.some(x => (x.floor || '').trim()), g = new Map();
+    for(const x of list){ const k = useF ? ((x.floor || '').trim() || 'Без указания этажа') : ''; if(!g.has(k)) g.set(k, []); g.get(k).push(x); }
+    return g;
+  };
+  const objLine = P(R(o.name + (o.address ? ', ' + o.address : '')), {jc: 'center', after: 200});
   const drOf = it => it.plan && it.plan.m && it.plan.m.length ? o.drawings.find(x => x.id === it.plan.d) : null;
-  const useFloors = defects.some(d => (d.floor || '').trim());
-  const groups = new Map();
-  for(const d of defects){
-    const key = useFloors ? ((d.floor || '').trim() || 'Без указания этажа') : '';
-    if(!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(d);
-  }
-  let tbl = tblOpen(WC);
-  tbl += `<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>${HEAD.map((t, i) => cell(WC[i], P(R(t, {b: true, sz: 20}), {jc: 'center'}))).join('')}</w:tr>`;
-  tbl += `<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>${HEAD.map((_, i) => cell(WC[i], P(R(String(i + 1), {b: true, sz: 20}), {jc: 'center'}))).join('')}</w:tr>`;
-  let n = 0;
-  for(const [key, list] of groups){
-    if(key) tbl += `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cell(FULL, P(R(key, {b: true}), {jc: 'center'}), {span: 7})}</w:tr>`;
-    for(const d of list){
-      progress(`Word: дефект ${++n} из ${defects.length}…`);
-      const name = (d.typeName || '').trim(), descr = (d.descr || '').trim();
-      let c2 = name ? P(R(name), {jc: 'center'}) : '';
-      if(descr && descr !== name) c2 += linesC(descr);
-      const pt = paramsText(d); if(pt) c2 += P(R(pt), {jc: 'center'});
-      if(!c2) c2 = P('');
-      let c3 = '';
-      if(op.pics){
-        for(const p of d.pics || []){
-          const blob = await MEDIA.get(p.id); if(!blob) continue;
-          const im = await loadImage(blob);
-          try {
-            const r = await resizeToJpeg(im.img, im.w, im.h, 1200, 0.8);
-            c3 += P(pic(new Uint8Array(await r.blob.arrayBuffer()), r.w, r.h, WC[2] - 190, 4300), {jc: 'center', after: 60});
-          } finally { URL.revokeObjectURL(im.url); }
+  let body = '';
+
+  if(op.defects){
+    const WC = [800, 1900, 4400, 800, 2100, 3600]; WC.push(FULL - sum(WC));
+    const HEAD = ['№ п/п', 'Описание дефекта', 'Описание дефекта (фото/эскиз)', 'К.т.с', 'Вероятная причина возникновения', 'Рекомендации по устранению', 'Месторасположение дефекта'];
+    const defects = o.defects.slice().sort((a, b) => a.no - b.no);
+    let tbl = tblOpen(WC) + headRows(WC, HEAD), n = 0;
+    for(const [key, list] of groupByFloor(defects)){
+      if(key) tbl += sectionRow(key, WC);
+      for(const d of list){
+        progress(`Word: дефект ${++n} из ${defects.length}…`);
+        const name = (d.typeName || '').trim(), descr = (d.descr || '').trim();
+        let c2 = name ? P(R(name), {jc: 'center'}) : '';
+        if(descr && descr !== name) c2 += linesC(descr);
+        const pt = paramsText(d); if(pt) c2 += P(R(pt), {jc: 'center'});
+        let c3 = '';
+        if(op.pics){
+          for(const p of d.pics || []){
+            const blob = await MEDIA.get(p.id); if(!blob) continue;
+            const im = await loadImage(blob);
+            try {
+              const r = await resizeToJpeg(im.img, im.w, im.h, 1400, 0.8);
+              c3 += P(pic(new Uint8Array(await r.blob.arrayBuffer()), r.w, r.h, WC[2] - 150, 4000), {jc: 'center', after: 60});
+            } finally { URL.revokeObjectURL(im.url); }
+          }
         }
-      }
-      if(op.frag){
-        const dr = drOf(d);
-        if(dr){
-          const cv = document.createElement('canvas');
-          if(await renderCrop(cv, dr, d.plan.m, 'defect', String(d.no), 900, op.ink ? await loadInk(dr) : null)) c3 += P(pic(await canvasU8(cv, 0.85), cv.width, cv.height, WC[2] - 190, 3200), {jc: 'center'});
-          cv.width = cv.height = 0;
+        if(op.frag){
+          const dr = drOf(d);
+          if(dr){
+            const cv = document.createElement('canvas');
+            if(await renderCrop(cv, dr, d.plan.m, 'defect', String(d.no), 1000, op.ink ? await loadInk(dr) : null, d.mc)) c3 += P(pic(await canvasU8(cv, 0.85), cv.width, cv.height, WC[2] - 150, 3200), {jc: 'center'});
+            cv.width = cv.height = 0;
+          }
         }
+        if(!c3 && d.photos) c3 = P(R('Фото: ' + d.photos), {jc: 'center'});
+        const loc = axesOf(d);
+        const c7 = (loc ? P(R(loc), {jc: 'center'}) : '') + linesC(d.locText) + linesC(d.element);
+        tbl += `<w:tr>${cell(WC[0], P(R(String(d.no)), {jc: 'center'}))}${cell(WC[1], c2)}${cell(WC[2], c3)}${cell(WC[3], '')}${cell(WC[4], '')}${cell(WC[5], '')}${cell(WC[6], c7)}</w:tr>`;
       }
-      if(!c3 && d.photos) c3 = P(R('Фото: ' + d.photos), {jc: 'center'});
-      const loc = axesOf(d);
-      let c7 = (loc ? P(R(loc), {jc: 'center'}) : '') + linesC(d.locText) + linesC(d.element);
-      if(!c7) c7 = P('');
-      tbl += `<w:tr>${cell(WC[0], P(R(String(d.no)), {jc: 'center'}))}${cell(WC[1], c2)}${cell(WC[2], c3)}${cell(WC[3], '')}${cell(WC[4], '')}${cell(WC[5], '')}${cell(WC[6], c7)}</w:tr>`;
     }
+    body += P(R('Ведомость дефектов и повреждений', {b: true, sz: 28}), {jc: 'center', after: 60}) + objLine;
+    body += defects.length ? tbl + '</w:tbl>' : P(R('Дефекты не внесены.', {i: true}));
   }
-  tbl += '</w:tbl>';
 
-  let body = P(R('Ведомость дефектов и повреждений', {b: true, sz: 28}), {jc: 'center', after: 60});
-  body += P(R(o.name + (o.address ? ', ' + o.address : '')), {jc: 'center', after: 200});
-  body += defects.length ? tbl : P(R('Дефекты не внесены.', {i: true}));
+  if(op.beacons && o.beacons.length){
+    const WB = [700, 1100, 1700, 2700, 1900, 0, 1700, 1900]; WB[5] = FULL - sum(WB);
+    const HEADB = ['№ п/п', 'Маяк', 'Тип маяка', 'Месторасположение маяка', 'Дата установки, начальный отсчёт', 'Результаты замеров (дата — отсчёт)', 'Изменение с начала, мм', 'Состояние'];
+    const list = o.beacons.slice().sort((a, b) => String(a.num).localeCompare(String(b.num), 'ru', {numeric: true}));
+    let tbl = tblOpen(WB) + headRows(WB, HEADB), n = 0;
+    for(const [key, group] of groupByFloor(list)){
+      if(key) tbl += sectionRow(key, WB);
+      for(const b of group){
+        progress(`Word: маяк ${++n} из ${list.length}…`);
+        const pts = series(b), rs = b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
+        const total = pts.length >= 2 ? fmtNum(Math.round((pts[pts.length - 1].v - pts[0].v) * 1000) / 1000, true) : '—';
+        let state = '—';
+        if(isBrittle(b)) state = beaconStatus(b, o).text;
+        else if(pts.length >= 2) state = `за последний интервал ${fmtNum(Math.round((pts[pts.length - 1].v - pts[pts.length - 2].v) * 1000) / 1000, true)} мм`;
+        const loc = axesOf(b);
+        const cLoc = (loc ? P(R(loc), {jc: 'center'}) : '') + linesC(b.locText) + linesC([b.construction, b.element].filter(Boolean).join(', '));
+        const cInst = P(R(fmtDate(b.installed) || '—'), {jc: 'center'}) + (b.initial ? P(R(`отсчёт ${b.initial} мм`), {jc: 'center'}) : '');
+        const cRead = rs.length ? rs.map(r => P(R(`${fmtDate(r.date)} — ${r.value ? r.value + ' мм' : ''}${r.state ? (r.value ? ', ' : '') + r.state.toLowerCase() : ''}`), {jc: 'center'})).join('') : P(R('замеров нет', {i: true}), {jc: 'center'});
+        tbl += `<w:tr>${cell(WB[0], P(R(String(n)), {jc: 'center'}))}${cell(WB[1], P(R(b.num), {jc: 'center'}))}${cell(WB[2], P(R(b.kind), {jc: 'center'}))}${cell(WB[3], cLoc)}${cell(WB[4], cInst)}${cell(WB[5], cRead)}${cell(WB[6], P(R(total), {jc: 'center'}))}${cell(WB[7], P(R(state), {jc: 'center'}))}</w:tr>`;
+      }
+    }
+    body += P(R('Ведомость маяков', {b: true, sz: 28}), {jc: 'center', after: 60, pageBreak: !!body}) + objLine + tbl + '</w:tbl>';
+  }
 
-  let tail = '';
   if(op.maps){
     const drs = o.drawings.filter(dr => planItems(o, dr.id).length);
     let k = 0;
     for(const dr of drs){
       progress(`Word: схема ${k + 1} из ${drs.length}…`);
-      const c = await renderMap(dr, o, 3000, op.ink ? await loadInk(dr) : null, {defects: true, beacons: true});
+      const c = await renderMap(dr, o, 3000, op.ink ? await loadInk(dr) : null, {defects: !!op.defects, beacons: !!op.beacons});
       const u8 = await canvasU8(c, 0.85);
-      if(k === 0) tail += P(R('Схемы расположения дефектов', {b: true, sz: 28}), {jc: 'center', after: 200, keepNext: true});
       k++;
-      tail += P(pic(u8, c.width, c.height, FULL_L, 8300), {jc: 'center', keepNext: true, pageBreak: k > 1});
-      tail += P(R(`Рисунок ${k} — Схема расположения дефектов. ${dr.name}`), {jc: 'center', before: 60, after: 240});
+      if(k === 1) body += P(R('Схемы расположения', {b: true, sz: 28}), {jc: 'center', after: 200, keepNext: true, pageBreak: !!body});
+      body += P(pic(u8, c.width, c.height, FULL, 8300), {jc: 'center', keepNext: true, pageBreak: k > 1});
+      body += P(R(`Рисунок ${k} — Схема расположения. ${dr.name}`), {jc: 'center', before: 60, after: 240});
       c.width = c.height = 0;
     }
   }
-  if(op.beacons && o.beacons.length){
-    tail += P(R('Маяки', {b: true, sz: 28}), {jc: 'center', after: 200, keepNext: true, pageBreak: !!tail});
-    const bw = [1000, 1500, 3400, 2000, 0, 2200]; bw[4] = FULL_L - bw.reduce((a, b) => a + b, 0);
-    let t2 = tblOpen(bw) + `<w:tr><w:trPr><w:tblHeader/></w:trPr>${['Маяк', 'Тип', 'Местоположение', 'Установлен', 'Замеры', 'Изменение с начала, мм'].map((t, i) => cell(bw[i], P(R(t, {b: true}), {jc: 'center'}), {shd: 'E8E8E8'})).join('')}</w:tr>`;
-    for(const b of o.beacons.slice().sort((a, c) => String(a.num).localeCompare(String(c.num), 'ru', {numeric: true}))){
-      const pts = series(b), rs = b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
-      const total = pts.length >= 2 ? fmtNum(Math.round((pts[pts.length - 1].v - pts[0].v) * 1000) / 1000, true) : '—';
-      t2 += `<w:tr>${cell(bw[0], P(R(b.num, {b: true}), {jc: 'center'}))}${cell(bw[1], P(R(b.kind), {jc: 'center'}))}${cell(bw[2], P(R(axesOf(b) || '—'), {jc: 'center'}) + linesC(b.locText) + linesC([b.floor, b.construction, b.element].filter(Boolean).join(', ')))}${cell(bw[3], P(R(fmtDate(b.installed) || '—'), {jc: 'center'}) + (b.initial ? P(R(`отсчёт ${b.initial} мм`), {jc: 'center'}) : ''))}${cell(bw[4], rs.length ? rs.map(r => P(R(`${fmtDate(r.date)} — ${r.value ? r.value + ' мм' : ''}${r.state ? (r.value ? ', ' : '') + r.state.toLowerCase() : ''}`))).join('') : P(R('замеров нет', {i: true})))}${cell(bw[5], P(R(isBrittle(b) ? beaconStatus(b, o).text : total), {jc: 'center'}))}</w:tr>`;
-    }
-    tail += t2 + '</w:tbl>';
-  }
-  // книжная ведомость; схемы и маяки — отдельным альбомным разделом
-  if(tail) body += P('', {sect: sectPortrait}) + tail + sectLandscape;
-  else body += sectPortrait;
+  body += `<w:sectPr><w:pgSz w:w="${PW}" w:h="${PH}" w:orient="landscape"/><w:pgMar w:top="${MT}" w:right="${MR}" w:bottom="${MB}" w:left="${ML}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>`;
 
   progress('Word: упаковка…');
   const xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
@@ -2819,7 +2956,7 @@ async function buildDocx(o, op, progress){
   const rootRels = `${xml}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`;
   const docRels = `${xml}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${media.map(m => `<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m.name}"/>`).join('')}</Relationships>`;
   const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
-  const core = `${xml}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xe('Ведомость дефектов — ' + o.name)}</dc:title><dc:creator>Полевой журнал</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`;
+  const core = `${xml}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xe('Ведомость — ' + o.name)}</dc:title><dc:creator>Полевой журнал</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`;
   const files = {
     '[Content_Types].xml': strToU8(ct), '_rels/.rels': strToU8(rootRels), 'docProps/core.xml': strToU8(core),
     'word/document.xml': strToU8(docXml), 'word/styles.xml': strToU8(styles), 'word/_rels/document.xml.rels': strToU8(docRels)
@@ -2828,29 +2965,35 @@ async function buildDocx(o, op, progress){
   return zipSync(files, {level: 6});
 }
 
+
 function wordDialog(){
   const o = cur(); if(!o) return;
   if(!o.defects.length && !o.beacons.length){ toast('Нет записей для выгрузки', true); return; }
   const nPics = o.defects.reduce((a, d) => a + (d.pics || []).length, 0);
-  const nPlans = o.defects.filter(d => d.plan).length, hasInk = o.drawings.some(d => d.inkN);
+  const nPlans = o.defects.filter(d => d.plan).length + o.beacons.filter(b => b.plan).length, hasInk = o.drawings.some(d => d.inkN);
   const body = h(`<div>
-    <p style="margin-top:0">Ведомость дефектов по форме: № п/п, описание, фото/эскиз, К.т.с, причина, рекомендации, месторасположение. Причина, рекомендации и К.т.с остаются пустыми — для заполнения инженером. Строки группируются по полю «Этаж, отметка».</p>
+    <p style="margin-top:0">Альбомный A4, Times New Roman 11, строки группируются по полю «Этаж, отметка». В ведомости дефектов графы К.т.с, причина и рекомендации остаются пустыми — для заполнения инженером.</p>
+    <div class="lbl">Ведомости</div>
+    <label class="check"><input type="checkbox" data-o="defects" ${o.defects.length ? 'checked' : 'disabled'}> Ведомость дефектов${o.defects.length ? ` (${o.defects.length})` : ' — дефектов нет'}</label>
+    <label class="check"><input type="checkbox" data-o="beacons" ${o.beacons.length ? 'checked' : 'disabled'}> Ведомость маяков${o.beacons.length ? ` (${o.beacons.length})` : ' — маяков нет'}</label>
+    <div class="lbl" style="margin-top:12px">Дополнительно</div>
     <label class="check"><input type="checkbox" data-o="pics" ${nPics ? 'checked' : 'disabled'}> Фото в графе «фото/эскиз»${nPics ? ` (${nPics})` : ' — фото нет'}</label>
-    <label class="check"><input type="checkbox" data-o="frag" ${nPlans ? '' : 'disabled'}> Добавить фрагмент чертежа с отметкой (эскиз)</label>
-    <label class="check"><input type="checkbox" data-o="maps" ${nPlans || o.beacons.some(b => b.plan) ? '' : 'disabled'}> Схемы расположения дефектов (отдельные листы)</label>
-    <label class="check"><input type="checkbox" data-o="beacons" ${o.beacons.length ? '' : 'disabled'}> Таблица маяков</label>
-    <label class="check"><input type="checkbox" data-o="ink" ${hasInk ? '' : 'disabled'}> Полевые записи на эскизах и схемах</label>
-    <p class="hint">Книжный A4, Times New Roman 11. Документ собирается на устройстве, интернет не нужен.</p></div>`);
-  openSheet('Ведомость в Word', body, btn('Сформировать', 'primary', async () => {
+    <label class="check"><input type="checkbox" data-o="frag" ${o.defects.some(d => d.plan) ? '' : 'disabled'}> Фрагмент чертежа с отметкой (эскиз)</label>
+    <label class="check"><input type="checkbox" data-o="maps" ${nPlans ? '' : 'disabled'}> Схемы расположения (отдельные листы)</label>
+    <label class="check"><input type="checkbox" data-o="ink" ${hasInk ? '' : 'disabled'}> Полевые записи на эскизах и схемах</label></div>`);
+  openSheet('Ведомости в Word', body, btn('Сформировать', 'primary', async () => {
     const op = {}; body.querySelectorAll('[data-o]').forEach(c => { op[c.dataset.o] = c.checked; });
+    if(!op.defects && !op.beacons){ toast('Выберите ведомость', true); return; }
     try {
       busy('Готовлю документ…');
       const u8 = await buildDocx(o, op, m => busy(m));
       busy(null);
-      offerFile(`Ведомость_${safeName(o.name)}_${today()}.docx`, u8, DOCX_MIME, {replace: true});
+      const what = op.defects && op.beacons ? 'Ведомости' : op.defects ? 'Ведомость_дефектов' : 'Ведомость_маяков';
+      offerFile(`${what}_${safeName(o.name)}_${today()}.docx`, u8, DOCX_MIME, {replace: true});
     } catch(e) { busy(null); toast('Документ не сформировался: ' + e.message, true); }
   }));
 }
+
 
 
 /* ===================== Резервные копии ===================== */
@@ -2908,30 +3051,55 @@ async function importBackup(file){
 }
 
 /* ===================== Экраны ===================== */
-let tab = 'drawings', fq = '', fc = '';
+let screen = 'home', tab = 'drawings', fq = '', fc = '';
+function goHome(){ screen = 'home'; render(); window.scrollTo(0, 0); }
+function openObject(id){
+  const o = db.objects.find(x => x.id === id); if(!o) return;
+  db.currentId = id; o.opened = Date.now(); save(); screen = 'object'; tab = 'drawings'; render(); window.scrollTo(0, 0);
+}
 function render(){
   const o = cur();
-  $('#top').innerHTML = `
-    <button type="button" class="obj-btn" id="objBtn" aria-label="Сменить объект"><span class="obj-name">${esc(o ? o.name : 'Полевой журнал')}</span>
-      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-    <span class="top-count">${o ? (tab === 'beacons' ? plural(o.beacons.length, ['маяк','маяка','маяков']) : tab === 'drawings' ? plural(o.drawings.length, ['лист','листа','листов']) : plural(o.defects.length, ['дефект','дефекта','дефектов'])) : ''}</span>`;
-  $('#objBtn').onclick = () => db.objects.length ? objectSwitcher() : objectForm();
-  document.querySelectorAll('#tabs button').forEach(b => { if(b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-  const fab = $('#fab');
-  fab.hidden = !o || tab === 'object';
-  fab.innerHTML = '<span aria-hidden="true">+</span> ' + (tab === 'beacons' ? 'Маяк' : tab === 'drawings' ? 'Чертёж' : 'Дефект');
-  fab.hidden = fab.hidden || (tab === 'drawings' && !o.drawings.length);
-  const v = $('#view');
-  if(!o && tab !== 'object'){
-    v.innerHTML = `<div class="empty"><h2>Начните с объекта</h2><p>Задайте наименование и оси — после этого можно загрузить чертежи и вносить дефекты.</p></div>`;
-    v.querySelector('.empty').append(btn('Создать объект', 'primary', () => objectForm()));
+  if(screen === 'object' && !o) screen = 'home';
+  document.body.classList.toggle('at-home', screen === 'home');
+  const fab = $('#fab'), v = $('#view');
+  if(screen === 'home'){
+    $('#top').innerHTML = `<span class="obj-name">Объекты</span><span class="top-count">${db.objects.length ? plural(db.objects.length, ['объект','объекта','объектов']) : ''}</span>`;
+    fab.hidden = false; fab.innerHTML = '<span aria-hidden="true">+</span> Объект';
+    renderHome(v);
     return;
   }
+  $('#top').innerHTML = `
+    <button type="button" class="back-btn" id="backBtn" aria-label="К списку объектов"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Объекты</button>
+    <span class="obj-name">${esc(o.name)}</span>
+    <span class="top-count">${tab === 'beacons' ? plural(o.beacons.length, ['маяк','маяка','маяков']) : tab === 'drawings' ? plural(o.drawings.length, ['лист','листа','листов']) : tab === 'defects' ? plural(o.defects.length, ['дефект','дефекта','дефектов']) : ''}</span>`;
+  $('#backBtn').onclick = goHome;
+  document.querySelectorAll('#tabs button').forEach(b => { if(b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  fab.hidden = tab === 'object' || (tab === 'drawings' && !o.drawings.length);
+  fab.innerHTML = '<span aria-hidden="true">+</span> ' + (tab === 'beacons' ? 'Маяк' : tab === 'drawings' ? 'Чертёж' : 'Дефект');
   if(tab === 'drawings') renderDrawings(v, o);
   else if(tab === 'defects') renderDefects(v, o);
   else if(tab === 'beacons') renderBeacons(v, o);
   else renderObject(v, o);
 }
+function renderHome(v){
+  const list = db.objects.slice().sort((a, b) => (b.opened || b.created || 0) - (a.opened || a.created || 0));
+  v.innerHTML = (list.length
+    ? `<p class="summary" style="margin-top:0">Выберите объект, чтобы работать с его чертежами, дефектами и маяками.</p>
+       <div class="olist">${list.map(o => `<button type="button" class="ocard" data-open-obj="${o.id}">
+         <span class="ocard-name">${esc(o.name)}</span>${o.address ? `<span class="ocard-addr">${esc(o.address)}</span>` : ''}
+         <span class="ocard-meta">${[plural(o.drawings.length, ['лист','листа','листов']), plural(o.defects.length, ['дефект','дефекта','дефектов']), plural(o.beacons.length, ['маяк','маяка','маяков'])].join(', ')}</span></button>`).join('')}</div>`
+    : `<div class="empty"><h2>Объектов пока нет</h2><p>Создайте объект обследования. Внутри него будут чертежи, дефекты, маяки и выгрузки.</p></div>`)
+    + `<section class="panel" style="margin-top:18px"><h3>Резервные копии</h3><div class="btn-row" data-bk></div>
+        <p class="small muted" style="margin-bottom:0">Копия одного объекта делается внутри объекта, во вкладке «Объект».</p></section>
+       <section class="panel"><h3>Справочники</h3><div class="btn-col" data-sp></div></section>
+       <p class="small muted" style="padding:0 4px">Данные хранятся только на этом устройстве и никуда не отправляются. Делайте резервную копию после каждого выезда.<span data-usage></span></p>`;
+  if(!list.length) $('.empty', v).append(btn('+ Новый объект', 'primary', () => objectForm()));
+  $('[data-bk]', v).append(btn('Импорт копии', 'small', () => pickFiles('.zip,.json,application/zip,application/json', false, f => importBackup(f[0]))));
+  if(list.length) $('[data-bk]', v).append(btn('Копия всех объектов', 'small', () => backupZip(true)));
+  $('[data-sp]', v).append(btn(`Каталог дефектов (${plural(db.catalog.length, ['тип','типа','типов'])})`, '', catalogEditor), btn('Конструкции', '', constrEditor));
+  if(navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(e => { const u = $('[data-usage]', v); if(u && e.usage) u.textContent = ` Занято: ${fmtMB(e.usage)}.`; }).catch(() => {});
+}
+
 function renderDrawings(v, o){
   if(!o.drawings.length){
     v.innerHTML = `<div class="empty"><h2>Загрузите чертежи</h2><p>PDF или фото листов. Потом откройте лист и работайте прямо на нём: записи пером, размеры, отметки дефектов.</p>
@@ -3014,60 +3182,40 @@ function renderBeacons(v, o){
 }
 function renderObject(v, o){
   v.innerHTML = '';
-  if(o){
-    const p = h(`<section class="panel"><h3>Текущий объект</h3>
-      <div class="field"><label for="c-nm">Наименование</label><input id="c-nm" class="inp" data-f="name" value="${esc(o.name)}" autocomplete="off"></div>
-      <div class="field"><label for="c-ad">Адрес</label><input id="c-ad" class="inp" data-f="address" value="${esc(o.address)}" autocomplete="off"></div>
-      <div class="field"><label for="c-ct">Договор</label><input id="c-ct" class="inp" data-f="contract" value="${esc(o.contract)}" autocomplete="off"></div>
-      ${axesFieldsHTML(o, 'c')}
-      <div class="field"><label for="c-th">Порог изменения по маякам, мм</label><input id="c-th" class="inp" data-f="threshold" inputmode="decimal" value="${esc(o.threshold)}">
-        <div class="hint">Изменение за последний интервал больше порога отмечается жёлтым. Порог — по точности прибора.</div></div>
-    </section>`);
-    let t;
-    p.addEventListener('input', e => {
-      const k = e.target.dataset.f; if(!k) return;
-      o[k] = k === 'name' ? (e.target.value || 'Без названия') : e.target.value;
-      clearTimeout(t); t = setTimeout(() => { save(); if(k === 'name') $('.obj-name').textContent = o.name; }, 300);
-    });
-    wireAxesFields(p, o);
-    v.append(p);
-
-
-    const ex = h(`<section class="panel"><h3>Выгрузка</h3>
-      <p class="small muted">Таблицы CSV открываются в Excel; оси в них дополнительно разложены по столбцам — для переноса на чертёж.</p>
-      <div class="btn-col"></div></section>`);
-    $('.btn-col', ex).append(
-      btn('Ведомость в Word', 'primary', wordDialog),
-      btn(`Листы с записями, PDF (${o.drawings.length})`, '', () => sheetsPdfDialog(o.drawings)),
-      btn(`Дефекты, CSV (${o.defects.length})`, '', () => { if(!o.defects.length) return toast('Нет дефектов для выгрузки', true); deliver(`Дефекты_${safeName(o.name)}_${today()}.csv`, defectsCSV(o), 'text/csv'); }),
-      btn(`Маяки и замеры, CSV (${o.beacons.length})`, '', () => { if(!o.beacons.length) return toast('Нет маяков для выгрузки', true); deliver(`Маяки_${safeName(o.name)}_${today()}.csv`, beaconsCSV(o), 'text/csv'); }),
-      btn('Резервная копия объекта (.zip)', '', () => backupZip(false)));
-    v.append(ex);
-  }
-  const all = h(`<section class="panel"><h3>Все объекты</h3><div class="obj-list"></div><div class="btn-row" style="margin-top:10px"></div></section>`);
-  $('.obj-list', all).innerHTML = db.objects.map(x => `<button type="button" class="obj-item${x.id === db.currentId ? ' on' : ''}" data-id="${x.id}">${esc(x.name)}<span>${plural(x.defects.length, ['дефект','дефекта','дефектов'])}</span></button>`).join('') || '<p class="muted small">Объектов нет.</p>';
-  $('.obj-list', all).addEventListener('click', e => { const b = e.target.closest('[data-id]'); if(!b) return; db.currentId = b.dataset.id; save(); render(); });
-  $('.btn-row', all).append(btn('+ Новый объект', 'primary small', () => objectForm()),
-    btn('Импорт копии', 'small', () => pickFiles('.zip,.json,application/zip,application/json', false, f => importBackup(f[0]))));
-  if(db.objects.length) $('.btn-row', all).append(btn('Копия всех', 'small', () => backupZip(true)));
-  v.append(all);
-
-  const sp = h(`<section class="panel"><h3>Справочники</h3><div class="btn-col"></div></section>`);
-  $('.btn-col', sp).append(btn(`Каталог дефектов (${plural(db.catalog.length, ['тип','типа','типов'])})`, '', catalogEditor), btn('Конструкции', '', constrEditor));
-  v.append(sp);
-
-  if(o){
-    const dz = h(`<section class="panel"><h3>Удаление</h3><p class="small muted">Удаляется текущий объект со всеми дефектами, фото, чертежами и маяками. Сначала сделайте резервную копию.</p></section>`);
-    dz.append(btn('Удалить объект', 'danger small', async () => {
-      if(!(await ask(`Удалить объект «${o.name}» (${plural(o.defects.length, ['дефект','дефекта','дефектов'])}, ${plural(o.beacons.length, ['маяк','маяка','маяков'])})? Это необратимо.`, {ok: 'Удалить', danger: true}))) return;
-      deleteObject(o).then(() => toast('Объект удалён'));
-    }));
-    v.append(dz);
-  }
-  const note = h(`<p class="small muted" style="padding:0 4px">Данные хранятся только на этом устройстве и никуда не отправляются. Делайте резервную копию после каждого выезда.<span data-usage></span></p>`);
-  v.append(note);
-  if(navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(e => { const u = $('[data-usage]', note); if(u && e.usage) u.textContent = ` Занято: ${fmtMB(e.usage)}.`; }).catch(() => {});
+  const p = h(`<section class="panel"><h3>Данные объекта</h3>
+    <div class="field"><label for="c-nm">Наименование</label><input id="c-nm" class="inp" data-f="name" value="${esc(o.name)}" autocomplete="off"></div>
+    <div class="field"><label for="c-ad">Адрес</label><input id="c-ad" class="inp" data-f="address" value="${esc(o.address)}" autocomplete="off"></div>
+    <div class="field"><label for="c-ct">Договор</label><input id="c-ct" class="inp" data-f="contract" value="${esc(o.contract)}" autocomplete="off"></div>
+    ${axesFieldsHTML(o, 'c')}
+    <div class="field"><label for="c-th">Порог изменения по маякам, мм</label><input id="c-th" class="inp" data-f="threshold" inputmode="decimal" value="${esc(o.threshold)}">
+      <div class="hint">Изменение за последний интервал больше порога отмечается жёлтым. Порог — по точности прибора.</div></div>
+  </section>`);
+  let t;
+  p.addEventListener('input', e => {
+    const k = e.target.dataset.f; if(!k) return;
+    o[k] = k === 'name' ? (e.target.value || 'Без названия') : e.target.value;
+    clearTimeout(t); t = setTimeout(() => { save(); if(k === 'name') $('.obj-name').textContent = o.name; }, 300);
+  });
+  wireAxesFields(p, o);
+  v.append(p);
+  const ex = h(`<section class="panel"><h3>Выгрузка</h3>
+    <p class="small muted">Таблицы CSV открываются в Excel; оси в них дополнительно разложены по столбцам — для переноса на чертёж.</p>
+    <div class="btn-col"></div></section>`);
+  $('.btn-col', ex).append(
+    btn('Ведомости в Word', 'primary', wordDialog),
+    btn(`Листы с отметками и записями, PDF (${o.drawings.length})`, '', () => sheetsPdfDialog(o.drawings)),
+    btn(`Дефекты, CSV (${o.defects.length})`, '', () => { if(!o.defects.length) return toast('Нет дефектов для выгрузки', true); deliver(`Дефекты_${safeName(o.name)}_${today()}.csv`, defectsCSV(o), 'text/csv'); }),
+    btn(`Маяки и замеры, CSV (${o.beacons.length})`, '', () => { if(!o.beacons.length) return toast('Нет маяков для выгрузки', true); deliver(`Маяки_${safeName(o.name)}_${today()}.csv`, beaconsCSV(o), 'text/csv'); }),
+    btn('Резервная копия объекта (.zip)', '', () => backupZip(false)));
+  v.append(ex);
+  const dz = h(`<section class="panel"><h3>Удаление</h3><p class="small muted">Удаляется этот объект со всеми дефектами, фото, чертежами и маяками. Сначала сделайте резервную копию.</p></section>`);
+  dz.append(btn('Удалить объект', 'danger small', async () => {
+    if(!(await ask(`Удалить объект «${o.name}» (${plural(o.defects.length, ['дефект','дефекта','дефектов'])}, ${plural(o.beacons.length, ['маяк','маяка','маяков'])})? Это необратимо.`, {ok: 'Удалить', danger: true}))) return;
+    deleteObject(o).then(() => toast('Объект удалён'));
+  }));
+  v.append(dz);
 }
+
 
 /* ===================== Запуск ===================== */
 document.getElementById('tabs').addEventListener('click', e => {
@@ -3075,11 +3223,13 @@ document.getElementById('tabs').addEventListener('click', e => {
   tab = b.dataset.tab; render(); window.scrollTo(0, 0);
 });
 document.getElementById('fab').addEventListener('click', () => {
-  if(tab === 'beacons') beaconForm();
+  if(screen === 'home') objectForm();
+  else if(tab === 'beacons') beaconForm();
   else if(tab === 'drawings') pickFiles('application/pdf,image/*', true, importDrawingFiles);
   else defectForm();
 });
 document.getElementById('view').addEventListener('click', e => {
+  const oo = e.target.closest('[data-open-obj]'); if(oo){ openObject(oo.dataset.openObj); return; }
   const ad = e.target.closest('[data-act-dr]');
   if(ad){ const o = cur(), dr = o && o.drawings.find(x => x.id === ad.dataset.actDr); if(dr) drawingActions(dr); return; }
   if(e.target.closest('[data-add-drawing]')){ pickFiles('application/pdf,image/*', true, importDrawingFiles); return; }
@@ -3094,6 +3244,12 @@ document.getElementById('view').addEventListener('keydown', e => {
   e.preventDefault(); t.click();
 });
 
+document.addEventListener('touchstart', e => {
+  const t = e.target;
+  if(!t || !(t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') || /^(checkbox|radio|file|color|date|range)$/.test(t.type) || document.activeElement !== t) return;
+  const vv = window.visualViewport, kbOpen = vv && vv.height < window.innerHeight - 120;
+  if(!kbOpen) t.blur();
+}, {passive: true, capture: true});
 load(); render(); gcMedia(); downloadsCap(); probeBlobImages();
 try { if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e) {}
 if(BUILD.pwa && !FRAMED && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)){

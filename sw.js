@@ -1,5 +1,5 @@
 // Офлайн-кэш полевого журнала. При обновлении файлов увеличьте номер версии.
-const CACHE = 'polevoy-zhurnal-v8';
+const CACHE = 'polevoy-zhurnal-v10';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png',
   './fflate.min.js', './pdf.min.js', './pdf.worker.min.js', './pdf-lib.min.js'];
 

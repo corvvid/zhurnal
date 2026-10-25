@@ -309,6 +309,23 @@ body.at-home{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .tedit .sw.on{box-shadow:0 0 0 2px var(--sheet),0 0 0 4px var(--ink)}
 .tedit .pop-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .tedit .seg button{padding:9px 4px}
+/* маяки: вторая ось, фото по циклам */
+.chart .line.y{stroke:var(--axis)}
+.chart .pt.y{stroke:var(--axis)}
+.spark .line.y{stroke:var(--axis)}
+.spark .pt.y{fill:var(--axis)}
+.cycle{margin:8px 0 12px}
+.cycle-h{font-size:14px;color:var(--ink-2);margin-bottom:6px}
+/* фото */
+.prow{display:grid;grid-template-columns:76px 1fr;gap:12px;padding:10px 14px 10px 10px;border-top:1px solid var(--rule);cursor:pointer;align-items:center}
+.prow:first-child{border-top:0}
+.prow:active{background:var(--sheet-2)}
+.prow-img{width:76px;height:58px;border-radius:8px;overflow:hidden;background:var(--sheet-2);display:block}
+.prow-img img{width:100%;height:100%;object-fit:cover;display:block}
+.prow-t{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-2)}
+.prow-t .row-no{min-width:auto;padding:0 8px}
+.btn.photo{background:var(--sheet);color:#2c7a4b;border-color:#2c7a4b}
+.ink-acts .btn.photo{flex:0 1 130px;margin-left:6px;padding:10px 12px;white-space:nowrap;font-size:15px}
 /* диалоги */
 .dlg{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.38);display:flex;align-items:center;justify-content:center;padding:20px}
 .dlg-box{background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 16px 40px -14px rgba(0,0,0,.45)}
@@ -365,6 +382,9 @@ body.at-home{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   <button type="button" data-tab="beacons">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18" opacity=".35"/><rect x="7" y="8" width="10" height="8" rx="1.5"/><path d="M12 8v8"/></svg>
     <span>Маяки</span></button>
+  <button type="button" data-tab="photos">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    <span>Фото</span></button>
   <button type="button" data-tab="object">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V6l8-3 8 3v14"/><path d="M9 20v-5h6v5M8 9h2M14 9h2M8 12h2M14 12h2"/></svg>
     <span>Сведения</span></button>
@@ -382,7 +402,7 @@ const LET = 'АБВГДЕЖИКЛМНПРСТУФШЭЮЯ'.split('');
 const LAT2CYR = {A:'А',B:'В',C:'С',E:'Е',H:'Н',K:'К',M:'М',P:'Р',T:'Т',X:'Х',Y:'У'};
 const SEV = [['','—'],['малозначительный','Малозн.'],['значительный','Значит.'],['критический','Критич.']];
 const SEV_CLASS = {'малозначительный':'minor','значительный':'major','критический':'critical'};
-const KINDS = ['Щелемер','Гипсовый','Стеклянный','Цементный','Индикатор','Измерительный','Прочее'];
+const KINDS = ['Измерительный (щелемер)','Угловой измерительный (щелемер)','Гипсовый','Стеклянный','Цементный','Индикатор','Прочее'];
 const BRITTLE = ['Гипсовый','Стеклянный','Цементный'];
 const BUILD = {pwa: true, fflate: 'fflate.min.js', pdf: 'pdf.min.js', pdfWorker: 'pdf.worker.min.js', pdflib: 'pdf-lib.min.js'};
 const FRAMED = (() => { try { return window.top !== window.self; } catch(e) { return true; } })();
@@ -507,6 +527,8 @@ function normalizeObject(o){
   o.defects = Array.isArray(o.defects) ? o.defects : [];
   o.beacons = Array.isArray(o.beacons) ? o.beacons : [];
   o.drawings = Array.isArray(o.drawings) ? o.drawings : [];
+  o.photos = Array.isArray(o.photos) ? o.photos : [];
+  for(const ph of o.photos){ ph.axes = ph.axes || {n: [], l: []}; ph.pics = Array.isArray(ph.pics) ? ph.pics : []; ph.plan = ph.plan || null; }
   for(const d of o.defects){
     d.axes = d.axes || {n: [], l: []}; d.pics = Array.isArray(d.pics) ? d.pics : []; d.plan = d.plan || null;
     if(!d.pu){ // длина и ширина раньше вводились в метрах — переводим в миллиметры
@@ -514,7 +536,12 @@ function normalizeObject(o){
       if(d.len) d.len = mm(d.len); if(d.wid) d.wid = mm(d.wid); d.pu = 'mm';
     }
   }
-  for(const b of o.beacons){ b.axes = b.axes || {n: [], l: []}; b.readings = Array.isArray(b.readings) ? b.readings : []; b.plan = b.plan || null; }
+  for(const b of o.beacons){
+    b.axes = b.axes || {n: [], l: []}; b.readings = Array.isArray(b.readings) ? b.readings : []; b.plan = b.plan || null;
+    b.pics = Array.isArray(b.pics) ? b.pics : [];
+    for(const r of b.readings) r.pics = Array.isArray(r.pics) ? r.pics : [];
+    if(b.kind === 'Щелемер' || b.kind === 'Измерительный') b.kind = 'Измерительный (щелемер)';
+  }
   return o;
 }
 function load(){
@@ -572,9 +599,16 @@ function mediaIds(objs){
   for(const o of objs){
     for(const d of o.drawings || []){ s.add(d.id); if(d.thumb) s.add(d.thumb); if(d.ink) s.add(d.ink); if(d.src) s.add(d.src); }
     for(const d of o.defects || []) for(const p of d.pics || []) s.add(p.id);
+    for(const ph of o.photos || []) for(const p of ph.pics || []) s.add(p.id);
+    for(const b of o.beacons || []){
+      for(const p of b.pics || []) s.add(p.id);
+      for(const r of b.readings || []) for(const p of r.pics || []) s.add(p.id);
+    }
   }
   return s;
 }
+
+
 async function gcMedia(){
   try {
     const keep = mediaIds(db.objects);
@@ -816,12 +850,63 @@ function drawMarks(ctx, marks, map, st, label){
   ctx.restore();
   return lab;
 }
+// Отметки на листе. Записи с общим plan.g — одна отметка, номера через «;» (3;4;10)
+const beaconNumKey = s => { const t = lastNumTok(s); return t ? +t : 0; };
+const KIND_LIST = {defect: 'defects', beacon: 'beacons', photo: 'photos'};
+function itemLabel(kind, r){ return kind === 'beacon' ? r.num : kind === 'photo' ? 'Ф-' + r.no : String(r.no); }
+function sortRefs(kind, refs){ return refs.slice().sort((a, b) => kind === 'beacon' ? beaconNumKey(a.num) - beaconNumKey(b.num) || String(a.num).localeCompare(String(b.num), 'ru') : a.no - b.no); }
 function planItems(o, drId){
-  const out = [];
-  for(const d of o.defects) if(d.plan && d.plan.d === drId && d.plan.m.length) out.push({kind: 'defect', ref: d, label: String(d.no)});
-  for(const b of o.beacons) if(b.plan && b.plan.d === drId && b.plan.m.length) out.push({kind: 'beacon', ref: b, label: b.num});
+  const out = [], groups = new Map();
+  const add = (kind, ref) => {
+    if(!(ref.plan && ref.plan.d === drId && ref.plan.m && ref.plan.m.length)) return;
+    const g = ref.plan.g;
+    if(g){
+      const key = kind + ':' + g; let it = groups.get(key);
+      if(!it){ it = {kind, ref, refs: []}; groups.set(key, it); out.push(it); }
+      it.refs.push(ref);
+    } else out.push({kind, ref, refs: [ref]});
+  };
+  for(const d of o.defects) add('defect', d);
+  for(const b of o.beacons) add('beacon', b);
+  for(const ph of o.photos || []) add('photo', ph);
+  for(const it of out){ it.refs = sortRefs(it.kind, it.refs); it.ref = it.refs[0]; it.label = it.refs.map(r => itemLabel(it.kind, r)).join(';'); }
   return out;
 }
+function groupLabel(o, kind, plan, selfId, selfLabel){
+  if(!plan || !plan.g) return selfLabel;
+  const others = (o[KIND_LIST[kind]] || []).filter(x => x.id !== selfId && x.plan && x.plan.g === plan.g);
+  const fake = kind === 'beacon' ? {num: selfLabel} : {no: +String(selfLabel).replace(/[^\d]/g, '')};
+  return sortRefs(kind, [...others, fake]).map(r => itemLabel(kind, r)).join(';');
+}
+function joinPlan(src){
+  if(!src || !src.plan) return null;
+  if(!src.plan.g) src.plan.g = uid();
+  return clone(src.plan);
+}
+function syncGroup(o, kind, ref){
+  if(!ref.plan || !ref.plan.g) return;
+  for(const x of o[KIND_LIST[kind]] || [])
+    if(x !== ref && x.plan && x.plan.g === ref.plan.g){ x.plan = clone(ref.plan); x.mc = ref.mc; }
+}
+function groupChooser(o, it){
+  const isB = it.kind === 'beacon', isP = it.kind === 'photo';
+  const title = isB ? 'Маяки на этом месте' : isP ? 'Фото на этом месте' : 'Дефекты на этом участке';
+  const body = h(`<div><p class="notice">${isB ? 'На этом месте несколько маяков' : isP ? 'На этом месте несколько точек фотофиксации' : 'На этом участке несколько дефектов'}: ${esc(it.label)}. Выберите, какой открыть.</p>
+    <div class="ledger">${isB
+      ? it.refs.map(b => `<div class="beacon" role="button" tabindex="0" data-pick="${b.id}"><div class="b-title">${esc(b.num)}<small>${esc(b.kind)}</small></div><span></span><div class="b-line">${esc(locStr(b) || '')}</div></div>`).join('')
+      : isP ? it.refs.map(ph => photoRow(ph).replace('data-photo=', 'data-pick=')).join('')
+      : it.refs.map(d => defectRow(d, o).replace('data-id=', 'data-pick=')).join('')}</div></div>`);
+  body.querySelectorAll('img[data-src]').forEach(im => mediaURL(im.dataset.src).then(u => { if(u) im.src = u; }).catch(() => {}));
+  body.addEventListener('click', e => {
+    const p = e.target.closest('[data-pick]'); if(!p) return;
+    if(isB) beaconDetail(p.dataset.pick, {replace: true});
+    else if(isP) photoForm(p.dataset.pick, null, {replace: true});
+    else defectForm(p.dataset.pick, null, {replace: true});
+  });
+  openSheet(title, body, btn('Закрыть', '', () => closeTop(false)));
+}
+
+
 /* ===================== Отметки на листе: облако со штриховкой и выноской ===================== */
 // Вся геометрия считается в пикселях листа (как растр чертежа) и в миллиметрах бумаги,
 // поэтому одинаково выглядит на экране, во фрагментах Word и в векторном PDF.
@@ -829,7 +914,76 @@ COL.defect = '#d81f26';
 const MARK_FONT = '"Arial Narrow","Helvetica Neue",Arial,sans-serif';
 const f1 = v => Math.round(v * 10) / 10;
 const MARK_COLORS = ['#d81f26', '#e07a00', '#c9a400', '#2c7a4b', '#1d4f7a', '#0f8ea8', '#7a3fb0', '#14202a'];
-function markColor(kind, ref){ return (ref && ref.mc) || (kind === 'beacon' ? COL.axis : COL.defect); }
+function markColor(kind, ref){ return (ref && ref.mc) || (kind === 'beacon' ? COL.axis : kind === 'photo' ? '#2c7a4b' : COL.defect); }
+function nextPhotoNo(o){ return (o.photos || []).reduce((m, p) => Math.max(m, p.no || 0), 0) + 1; }
+function photoRow(ph){
+  const loc = [ph.room ? 'пом. ' + ph.room : '', locStr(ph)].filter(Boolean).join(', ');
+  const first = (ph.pics || [])[0];
+  return `<div class="prow" role="button" tabindex="0" data-photo="${ph.id}">
+    <span class="prow-img">${first ? `<img alt="" data-src="${first.id}">` : ''}</span>
+    <div><div class="prow-t"><span class="row-no" style="border-color:#2c7a4b;color:#2c7a4b">Ф-${ph.no}</span> ${plural((ph.pics || []).length, ['фото','фото','фото'])}</div>
+      <div class="row-loc">${esc(loc || 'место не указано')}</div>
+      ${ph.floor || ph.note ? `<div class="row-meta">${esc([ph.floor, ph.note].filter(Boolean).join('; '))}</div>` : ''}</div></div>`;
+}
+function renderPhotos(v, o){
+  const list = (o.photos || []).slice().sort((a, b) => b.no - a.no);
+  if(!list.length){
+    v.innerHTML = `<div class="empty"><h2>Фото пока нет</h2><p>Нажмите «+ Фото» здесь или на листе чертежа: отметьте место съёмки, добавьте один или несколько снимков, номер помещения и оси. Из этих карточек собирается фотоприложение.</p></div>`;
+    return;
+  }
+  v.innerHTML = `<div class="summary">Точек фотофиксации: ${list.length}, снимков: ${list.reduce((a, p) => a + (p.pics || []).length, 0)}. Новые сверху.</div><div class="ledger">${list.map(photoRow).join('')}</div>`;
+  v.querySelectorAll('img[data-src]').forEach(im => mediaURL(im.dataset.src).then(u => { if(u) im.src = u; }).catch(() => {}));
+}
+function photoForm(id, preset, opts = {}){
+  const o = cur(); if(!o) return;
+  o.photos = o.photos || [];
+  const ex = id ? o.photos.find(p => p.id === id) : null;
+  const f = ex ? clone(ex) : Object.assign({axes: {n: [], l: []}, axesText: '', room: '', locText: '', floor: '', construction: '', element: '', note: '', pics: [], plan: null, mc: ''}, clone(preset || {}));
+  f.pics = f.pics || [];
+  const from = f._from; delete f._from;
+  const ref = {added: []};
+  const no = ex ? ex.no : nextPhotoNo(o);
+  const body = h(`<div>
+    ${from ? `<p class="notice">Ещё фото на том же месте, что и ${esc(from)}: номер добавится к той же выноске через «;».</p>` : ''}
+    <div class="field"><div class="lbl">Фото</div><div data-pics></div><div class="hint">Можно добавить несколько снимков — в фотоприложении они встанут в одну строку под общим номером Ф-${no}.</div></div>
+    <div class="field"><label for="p-rm">Номер помещения</label><input id="p-rm" class="inp" data-f="room" value="${esc(f.room)}" placeholder="например, 104 или «Лестничная клетка Л-1»" autocomplete="off"></div>
+    <div class="group"><p class="group-title">Место</p>${placeFieldsHTML(f, o, 'p')}</div>
+    <div class="field"><label for="p-nt">Подпись к фото</label><textarea id="p-nt" class="inp" data-f="note" placeholder="Что на снимке: общий вид, узел опирания, трещина над проёмом…">${esc(f.note)}</textarea></div>
+  </div>`);
+  wirePlaceFields(body, f, o, ref, {kind: 'photo', label: () => groupLabel(o, 'photo', f.plan, f.id, 'Ф-' + no)});
+  mountPics($('[data-pics]', body), f, ref);
+  function commit(again){
+    f.updated = Date.now();
+    let target;
+    if(ex){
+      const removed = (ex.pics || []).filter(p => !f.pics.some(q => q.id === p.id));
+      Object.assign(ex, f); target = ex; removed.forEach(p => MEDIA.del(p.id).catch(() => {}));
+    } else { f.id = uid(); f.created = Date.now(); f.no = nextPhotoNo(o); o.photos.push(f); target = f; }
+    syncGroup(o, 'photo', target);
+    if(!save()) return;
+    ref.node.committed = true; render();
+    if(again){
+      const plan = joinPlan(target); save();
+      photoForm(null, {axes: clone(target.axes), axesText: target.axesText, room: target.room, locText: target.locText, floor: target.floor, construction: target.construction, element: target.element, plan, mc: target.mc, _from: 'Ф-' + target.no}, {replace: true});
+      toast(`Фото Ф-${target.no} сохранено`);
+      return;
+    }
+    closeTop(false); toast(`Фото Ф-${target.no} сохранено`);
+  }
+  const foot = [];
+  if(ex) foot.push(btn('Удалить', 'danger', async () => {
+    if(!(await ask(`Удалить точку фотофиксации Ф-${ex.no} вместе со снимками?`, {ok: 'Удалить', danger: true}))) return;
+    o.photos = o.photos.filter(p => p !== ex);
+    [...(ex.pics || []), ...f.pics].forEach(p => MEDIA.del(p.id).catch(() => {}));
+    save(); ref.node.committed = true; closeTop(false); render(); toast('Удалено');
+  }));
+  foot.push(btn('Ещё фото здесь', '', () => commit(true)));
+  foot.push(btn('Сохранить', 'primary', () => commit(false)));
+  ref.node = openSheet(ex ? `Фото Ф-${ex.no}` : `Фото Ф-${no}`, body, foot, {trackDirty: true, replace: !!opts.replace});
+  ref.node.onClose = () => { if(!ref.node.committed) ref.added.forEach(i => MEDIA.del(i).catch(() => {})); };
+  if(preset && preset.plan) ref.node.dirty = true;
+}
+
 function sheetMetrics(dr){
   const [wmm, hmm] = pageMM(dr), px = dr.w / wmm, L = Math.max(wmm, hmm);
   const auto = Math.min(7, Math.max(3.5, L / 95)); // авто-высота номера: А4 ≈ 3,5 мм, А3 ≈ 4,4 мм, А2 ≈ 6 мм, А1–А0 — 7 мм
@@ -896,7 +1050,7 @@ function markPrims(m, kind, label, dr, M, alpha, withLabel, color){
   const P = [];
   if(m.t === 'r'){
     const r = rectPx(m, dr);
-    P.push({type: 'path', d: hatchPath(r, M.hatch), stroke: color, w: M.thin, alpha});
+    if(kind !== 'photo') P.push({type: 'path', d: hatchPath(r, M.hatch), stroke: color, w: M.thin, alpha});
     P.push({type: 'path', d: cloudPath(r, M.bump), stroke: color, w: M.lw, alpha});
     if(withLabel && label && m.lab){
       const g = leaderGeom(r, [m.lab[0] * dr.w, m.lab[1] * dr.h], label, M);
@@ -1190,7 +1344,7 @@ async function renderMap(dr, o, maxSide, ink, layers = {defects: true, beacons: 
   x.drawImage(im.img, 0, 0, w, hh);
   x.setTransform(w / im.w, 0, 0, hh / im.h, 0, 0);
   if(ink && ink.length) drawInk(x, ink);
-  for(const it of planItems(o, dr.id)) if(it.kind === 'beacon' ? layers.beacons : layers.defects) paintPrims(x, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {color: markColor(it.kind, it.ref)}));
+  for(const it of planItems(o, dr.id)) if(it.kind === 'beacon' ? layers.beacons : it.kind === 'photo' ? layers.photos : layers.defects) paintPrims(x, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {color: markColor(it.kind, it.ref)}));
   x.setTransform(1, 0, 0, 1, 0, 0);
   return c;
 }
@@ -1211,7 +1365,7 @@ function ui(){
   const u = db.ui, def = (k, v) => { if(u[k] === undefined) u[k] = v; };
   def('tool', 'hand'); def('color', {}); def('width', {});
   def('eraser', 'part'); def('straight', true); def('stylus', false); def('showInk', true); def('showMarks', true); def('textSize', 1);
-  def('defColor', '#d81f26'); def('beaColor', '#1d4f7a'); def('shape', 'arrow');
+  def('defColor', '#d81f26'); def('beaColor', '#1d4f7a'); def('phoColor', '#2c7a4b'); def('shape', 'arrow');
   def('textStyle', {ff: 'gost', mm: 3.5, b: false, i: true, u: false});
   if(!u.v6){ u.eraser = 'part'; u.v6 = 1; }
   const dc = {pen: '#c8202f', marker: '#e8c200', pencil: '#14202a', text: '#c8202f', shape: '#c8202f'};
@@ -1445,7 +1599,7 @@ async function openPlan(cfg){
   // phase: ink — записи; mark — новая или редактируемая отметка (draft); select — выделена отметка на листе (sel)
   let phase = work ? 'ink' : 'mark', draft = null, sel = null, isel = null;
   const startDraft = (kind, label, id, marks, color) => {
-    draft = {kind, label, id: id || null, marks: clone(marks || []), color: color || (kind === 'beacon' ? u.beaColor : u.defColor)};
+    draft = {kind, label, id: id || null, marks: clone(marks || []), color: color || (kind === 'beacon' ? u.beaColor : kind === 'photo' ? u.phoColor : u.defColor)};
     draft.step = draft.marks.length ? 'adjust' : 'draw';
   };
   if(!work) startDraft(cfg.self.kind, cfg.self.label, cfg.self.id, cfg.marks, cfg.self.color);
@@ -1517,7 +1671,7 @@ async function openPlan(cfg){
     return (north ? 'n' : 's') + (east ? 'e' : 'w');
   }
   function commitEdit(){
-    if(phase === 'select' && sel){ sel.changed = true; sel.it.ref.updated = Date.now(); save(); render(); }
+    if(phase === 'select' && sel){ sel.changed = true; sel.it.ref.updated = Date.now(); syncGroup(o, sel.it.kind, sel.it.ref); save(); render(); }
     drawFoot(); schedule();
   }
   function setDir(k){
@@ -1526,7 +1680,7 @@ async function openPlan(cfg){
     m.lab = nrm(dirPoint(rectPx(m, dr), k)); commitEdit();
   }
   function startSelect(hit){
-    sel = {it: hit.it, mi: hit.mi, orig: clone(hit.it.ref.plan), origMc: hit.it.ref.mc, changed: false};
+    sel = {it: hit.it, mi: hit.mi, origAll: hit.it.refs.map(r => [r, clone(r.plan), r.mc]), changed: false};
     phase = 'select'; closePop(); drawFoot(); schedule();
   }
   function endSelect(){ phase = 'ink'; sel = null; drawFoot(); toolHint(); schedule(); }
@@ -1595,11 +1749,11 @@ async function openPlan(cfg){
         <div class="ink-acts"><button type="button" class="tb" data-undo ${undoS.length ? '' : 'disabled'} aria-label="Отменить" title="Отменить">${IC.undo}</button>
           <button type="button" class="tb" data-redo ${redoS.length ? '' : 'disabled'} aria-label="Повторить" title="Повторить">${IC.redo}</button>
           <button type="button" class="tb" data-pop="more" aria-label="Ещё" title="Ещё">${IC.more}</button>
-          <button type="button" class="btn axis" data-new-beacon>+ Маяк</button><button type="button" class="btn mark" data-new>+ Дефект</button></div></div>`;
+          <button type="button" class="btn photo" data-new-photo>+ Фото</button><button type="button" class="btn axis" data-new-beacon>+ Маяк</button><button type="button" class="btn mark" data-new>+ Дефект</button></div></div>`;
       return;
     }
     if(phase === 'mark'){
-      const isB = draft.kind === 'beacon', m0 = draft.marks[0], what = isB ? 'маяка' : 'дефекта';
+      const isB = draft.kind === 'beacon', isP = draft.kind === 'photo', m0 = draft.marks[0], what = isB ? 'маяка' : isP ? 'съёмки' : 'дефекта';
       if(draft.step === 'draw'){
         foot.innerHTML = `<div class="mk-bar">${markTools(draft.color)}<button type="button" class="btn" data-mk-cancel>Отмена</button>${!work && cfg.marks && cfg.marks.length ? '<button type="button" class="btn danger" data-mk-remove>Убрать отметку</button>' : ''}</div>`;
         showHint(`Растяните прямоугольник по месту ${what}. Короткое касание — маленькая отметка.` + navTail());
@@ -1607,24 +1761,26 @@ async function openPlan(cfg){
         foot.innerHTML = `<div class="mk-bar">${m0 && m0.t === 'r' ? dirBtns() : ''}${markTools(draft.color)}<button type="button" class="btn" data-mk-again>Заново</button>
           ${work ? '<button type="button" class="btn" data-mk-cancel>Отмена</button>' : '<button type="button" class="btn danger" data-mk-remove>Убрать</button>'}
           <button type="button" class="btn primary" data-mk-done>Готово</button></div>`;
-        showHint((m0 && m0.t === 'r' ? `Коснитесь места для ${isB ? 'наименования маяка' : 'номера'} или выберите направление выноски. Прямоугольник и его углы можно перетаскивать.`
+        showHint((m0 && m0.t === 'r' ? `Коснитесь места для ${isB ? 'наименования маяка' : isP ? 'номера фото' : 'номера'} или выберите направление выноски. Прямоугольник и его углы можно перетаскивать.`
           : 'Отметку можно перетащить. «Заново» — нарисовать облаком.') + navTail());
       }
       return;
     }
     const m = sel && sel.it.ref.plan ? sel.it.ref.plan.m[sel.mi] : null;
-    foot.innerHTML = `<div class="mk-bar">${m && m.t === 'r' ? dirBtns() : ''}${markTools(markColor(sel.it.kind, sel.it.ref))}<button type="button" class="btn" data-sel-open>Открыть</button>
+    foot.innerHTML = `<div class="mk-bar">${m && m.t === 'r' ? dirBtns() : ''}${markTools(markColor(sel.it.kind, sel.it.ref))}<button type="button" class="btn" data-sel-open>${sel.it.refs.length > 1 ? `Открыть (${sel.it.refs.length})` : 'Открыть'}</button>
+      <button type="button" class="btn" data-sel-add>+ ${sel.it.kind === 'beacon' ? 'Маяк' : sel.it.kind === 'photo' ? 'Фото' : 'Дефект'} сюда</button>
       <button type="button" class="btn danger" data-sel-del>Убрать</button><button type="button" class="btn" data-sel-revert ${sel && sel.changed ? '' : 'disabled'}>Вернуть</button>
       <button type="button" class="btn primary" data-sel-done>Готово</button></div>`;
-    showHint(`${sel.it.kind === 'beacon' ? 'Маяк ' : 'Дефект № '}${sel.it.label}: перетащите отметку, её углы или ${sel.it.kind === 'beacon' ? 'наименование' : 'номер'}; коснитесь листа — ${sel.it.kind === 'beacon' ? 'наименование' : 'номер'} переместится туда.`);
+    showHint(`${sel.it.kind === 'beacon' ? 'Маяк ' : sel.it.kind === 'photo' ? 'Фото ' : 'Дефект № '}${sel.it.label}: перетащите отметку, её углы или ${sel.it.kind === 'beacon' ? 'наименование' : 'номер'}; коснитесь листа — ${sel.it.kind === 'beacon' ? 'наименование' : 'номер'} переместится туда.`);
   }
   function markTools(color){
     return `<button type="button" class="tb" data-pop="mcolor" aria-label="Цвет отметки" title="Цвет отметки"><span class="swatch" style="background:${color}"></span></button>`
       + `<button type="button" class="tb tb-txt" data-pop="msize" aria-label="Размер выноски и номера" title="Размер выноски и номера">Aa</button>`;
   }
   function setMarkColor(c){
-    if(phase === 'select' && sel){ sel.it.ref.mc = c; if(sel.it.kind === 'beacon') u.beaColor = c; else u.defColor = c; commitEdit(); }
-    else if(draft){ draft.color = c; if(draft.kind === 'beacon') u.beaColor = c; else u.defColor = c; save(); drawFoot(); schedule(); }
+    const keep = kind => { if(kind === 'beacon') u.beaColor = c; else if(kind === 'photo') u.phoColor = c; else u.defColor = c; };
+    if(phase === 'select' && sel){ sel.it.ref.mc = c; keep(sel.it.kind); commitEdit(); }
+    else if(draft){ draft.color = c; keep(draft.kind); save(); drawFoot(); schedule(); }
   }
   function closePop(){ if(pop){ pop.remove(); pop = null; } }
   function openPop(kind){
@@ -1731,6 +1887,7 @@ async function openPlan(cfg){
     if(e.target.closest('[data-undo]')){ closePop(); if(phase === 'inksel'){ phase = 'ink'; isel = null; } if(undoS.length){ redoS.push(strokes); strokes = undoS.pop(); persist(); } drawFoot(); schedule(); return; }
     if(e.target.closest('[data-redo]')){ closePop(); if(phase === 'inksel'){ phase = 'ink'; isel = null; } if(redoS.length){ undoS.push(strokes); strokes = redoS.pop(); persist(); } drawFoot(); schedule(); return; }
     if(e.target.closest('[data-new]')){ closePop(); startDraft('defect', nextNo()); phase = 'mark'; drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-new-photo]')){ closePop(); startDraft('photo', 'Ф-' + nextPhotoNo(o)); phase = 'mark'; drawFoot(); schedule(); return; }
     if(e.target.closest('[data-new-beacon]')){ closePop(); startDraft('beacon', nextBeaconNo(o)); phase = 'mark'; drawFoot(); schedule(); return; }
     if(e.target.closest('[data-mk-cancel]')){
       if(work){ phase = 'ink'; draft = null; drawFoot(); toolHint(); schedule(); } else closeTop(false);
@@ -1742,17 +1899,28 @@ async function openPlan(cfg){
       if(!draft || !draft.marks.length) return;
       if(!work){ cfg.onDone(draft.marks, draft.color); closeTop(false); return; }
       const m = draft.marks, kind = draft.kind, mc = draft.color; phase = 'ink'; draft = null; drawFoot(); showHint('', 0); schedule();
-      if(kind === 'beacon') beaconForm(null, {plan: {d: dr.id, m}, mc}, {fromPlan: true}); else defectForm(null, {plan: {d: dr.id, m}, mc});
+      if(kind === 'beacon') beaconForm(null, {plan: {d: dr.id, m}, mc}, {fromPlan: true});
+      else if(kind === 'photo') photoForm(null, {plan: {d: dr.id, m}, mc});
+      else defectForm(null, {plan: {d: dr.id, m}, mc});
       return;
     }
-    if(e.target.closest('[data-sel-open]')){ const it = sel.it; endSelect(); openItem(it); return; }
-    if(e.target.closest('[data-sel-del]')){
-      const it = sel.it, what = it.kind === 'beacon' ? `маяка ${it.label}` : `дефекта № ${it.label}`;
-      if(!(await ask(`Убрать отметку ${what} с листа? Сама запись останется в списке.`, {ok: 'Убрать', danger: true}))) return;
-      const pl = it.ref.plan; pl.m.splice(sel.mi, 1); if(!pl.m.length) it.ref.plan = null;
-      it.ref.updated = Date.now(); save(); render(); endSelect(); toast('Отметка убрана'); return;
+    if(e.target.closest('[data-sel-open]')){ const it = sel.it; endSelect(); if(it.refs.length > 1){ flushInk(); groupChooser(o, it); } else openItem(it); return; }
+    if(e.target.closest('[data-sel-add]')){
+      const it = sel.it, r0 = it.ref, plan = joinPlan(r0); save(); endSelect(); flushInk();
+      const pre = {plan, mc: r0.mc, axes: clone(r0.axes), axesText: r0.axesText, locText: r0.locText, floor: r0.floor, construction: r0.construction, element: r0.element, _from: it.label};
+      if(it.kind === 'beacon') beaconForm(null, {...pre, kind: r0.kind}, {fromPlan: true});
+      else if(it.kind === 'photo') photoForm(null, {...pre, room: r0.room});
+      else defectForm(null, pre);
+      return;
     }
-    if(e.target.closest('[data-sel-revert]')){ sel.it.ref.plan = clone(sel.orig); sel.it.ref.mc = sel.origMc; sel.changed = false; save(); render(); drawFoot(); schedule(); return; }
+    if(e.target.closest('[data-sel-del]')){
+      const it = sel.it, many = it.refs.length > 1;
+      const what = it.kind === 'beacon' ? `${many ? 'маяков' : 'маяка'} ${it.label}` : it.kind === 'photo' ? `фото ${it.label}` : `${many ? 'дефектов' : 'дефекта'} № ${it.label}`;
+      if(!(await ask(`Убрать отметку ${what} с листа? ${many ? 'Сами записи останутся' : 'Сама запись останется'} в списке.`, {ok: 'Убрать', danger: true}))) return;
+      for(const r of it.refs){ if(!r.plan) continue; r.plan.m.splice(sel.mi, 1); if(!r.plan.m.length) r.plan = null; r.updated = Date.now(); }
+      save(); render(); endSelect(); toast('Отметка убрана'); return;
+    }
+    if(e.target.closest('[data-sel-revert]')){ for(const [r, pl, mc] of sel.origAll){ r.plan = clone(pl); r.mc = mc; } sel.changed = false; save(); render(); drawFoot(); schedule(); return; }
     if(e.target.closest('[data-sel-done]')){ endSelect(); return; }
   });
   node.beforeClose = () => {
@@ -1794,7 +1962,7 @@ async function openPlan(cfg){
     }
     if(u.showMarks || phase !== 'ink' || !work){
       for(const it of planItems(o, dr.id)){
-        if(draft && draft.id && it.kind === draft.kind && it.ref.id === draft.id) continue;
+        if(draft && draft.id && it.kind === draft.kind && it.refs.some(r => r.id === draft.id)) continue;
         paintPrims(ctx, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {faint: phase === 'mark', color: markColor(it.kind, it.ref)}));
       }
     }
@@ -1845,7 +2013,7 @@ async function openPlan(cfg){
   function hitMark(p){
     let best = null, bs = Infinity;
     for(const it of planItems(o, dr.id)){
-      if(draft && draft.id && it.kind === draft.kind && it.ref.id === draft.id) continue;
+      if(draft && draft.id && it.kind === draft.kind && it.refs.some(r => r.id === draft.id)) continue;
       it.ref.plan.m.forEach((m, mi) => {
         let sc = Infinity;
         if(m.t === 'r'){
@@ -1920,7 +2088,7 @@ async function openPlan(cfg){
     draft.marks = [{t: 'r', p: [nrm([r.x0, r.y0]), nrm([r.x1, r.y1])], lab: nrm(dirPoint(r, autoDir(r)))}];
     draft.step = 'adjust'; drawFoot(); schedule();
   }
-  function openItem(it){ flushInk(); if(it.kind === 'defect') defectForm(it.ref.id); else beaconDetail(it.ref.id); }
+  function openItem(it){ flushInk(); if(it.kind === 'defect') defectForm(it.ref.id); else if(it.kind === 'photo') photoForm(it.ref.id); else beaconDetail(it.ref.id); }
 
   /* --- записи: перо, ластик, текст --- */
   function trySnap(gg){ if(g !== gg || gg.snapped) return; const shp = recognize(gg.pts, s); if(shp){ gg.snapped = shp; schedule(); } }
@@ -2224,7 +2392,7 @@ async function buildSheetsPdfVector(L, o, drs, opt){
       }
     }
     const items = planItems(o, dr.id);
-    for(const [kind, tag, name, on] of [['defect', 'OCdef', 'Дефекты', opt.defects], ['beacon', 'OCbeac', 'Маяки', opt.beacons]]){
+    for(const [kind, tag, name, on] of [['defect', 'OCdef', 'Дефекты', opt.defects], ['beacon', 'OCbeac', 'Маяки', opt.beacons], ['photo', 'OCphoto', 'Фото', opt.photos]]){
       const its = items.filter(it => it.kind === kind);
       if(!on || !its.length) continue;
       layer(tag, name, () => { for(const it of its) pdfPrims(L, pg, itemPrims(it.kind, it.ref.plan.m, it.label, dr, {color: markColor(it.kind, it.ref)}), k, H, fonts); });
@@ -2239,7 +2407,7 @@ async function buildSheetsPdfRaster(o, drs, opt){
   const pages = []; let i = 0;
   for(const dr of drs){
     busy(`PDF: лист ${++i} из ${drs.length}…`);
-    const c = await renderMap(dr, o, 4200, opt.notes ? await loadInk(dr) : null, {defects: opt.defects, beacons: opt.beacons});
+    const c = await renderMap(dr, o, 4200, opt.notes ? await loadInk(dr) : null, {defects: opt.defects, beacons: opt.beacons, photos: opt.photos});
     const [wmm, hmm] = pageMM(dr);
     pages.push({jpg: await canvasU8(c, 0.9), w: c.width, h: c.height, pw: wmm * 72 / 25.4, ph: hmm * 72 / 25.4});
     c.width = c.height = 0;
@@ -2259,7 +2427,7 @@ async function exportSheetsPdf(drs, opt){
     if(!u8){ u8 = await buildSheetsPdfRaster(o, drs, opt); note = note || 'модуль сборки PDF недоступен'; }
     busy(null);
     if(note) toast('Лист собран картинкой, без слоёв: ' + note, true);
-    const suffix = [opt.defects && 'дефекты', opt.beacons && 'маяки', opt.notes && 'записи'].filter(Boolean).join('+') || 'чертёж';
+    const suffix = [opt.defects && 'дефекты', opt.beacons && 'маяки', opt.photos && 'фото', opt.notes && 'записи'].filter(Boolean).join('+') || 'чертёж';
     offerFile(drs.length === 1 ? `${safeName(drs[0].name)} — ${suffix} ${today()}.pdf` : `Чертежи_${safeName(o.name)}_${suffix}_${today()}.pdf`, u8, 'application/pdf', {replace: true});
   } catch(e) { busy(null); toast('PDF не сформировался: ' + e.message, true); }
 }
@@ -2267,23 +2435,25 @@ async function exportSheetsPdf(drs, opt){
 function sheetsPdfDialog(drs){
   const o = cur(); if(!o || !drs.length){ toast('Чертежей нет', true); return; }
   const has = k => drs.some(d => planItems(o, d.id).some(it => it.kind === k)), hasInk = drs.some(d => d.inkN);
-  const hd = has('defect'), hb = has('beacon');
+  const hd = has('defect'), hb = has('beacon'), hp = has('photo');
   const body = h(`<div>
     <p style="margin-top:0">${drs.length === 1 ? `Лист «${esc(drs[0].name)}»` : `Все листы объекта: ${drs.length}`}. Каждый лист выгружается в своём исходном формате.</p>
     <div class="small muted" style="margin-bottom:6px">${drs.map(d => `${esc(d.name)} — ${esc(fmtLabel(d))}${d.src ? '' : ' (из изображения)'}`).join('<br>')}</div>
     <div class="lbl" style="margin-top:12px">Что выгрузить</div>
     <label class="check"><input type="checkbox" data-w="defects" ${hd ? 'checked' : 'disabled'}> Дефекты${hd ? '' : ' — отметок нет'}</label>
     <label class="check"><input type="checkbox" data-w="beacons" ${hb ? 'checked' : 'disabled'}> Маяки${hb ? '' : ' — отметок нет'}</label>
+    <label class="check"><input type="checkbox" data-w="photos" ${hp ? 'checked' : 'disabled'}> Фото — места съёмки${hp ? '' : ' — отметок нет'}</label>
     <label class="check"><input type="checkbox" data-w="notes" ${hasInk ? 'checked' : 'disabled'}> Полевые записи${hasInk ? '' : ' — записей нет'}</label>
     <label class="check"><input type="checkbox" data-bare> Без подложки чертежа — только выбранное</label>
-    <p class="hint">Оставьте одну галочку, чтобы выгрузить дефекты, маяки или записи отдельным файлом. При нескольких — каждый вид данных ляжет в PDF своим слоем («Дефекты», «Маяки», «Полевые записи»), их можно включать по отдельности в Acrobat и при импорте в AutoCAD.</p></div>`);
+    <p class="hint">Оставьте одну галочку, чтобы выгрузить что-то отдельным файлом. При нескольких каждый вид данных ляжет в PDF своим слоем («Дефекты», «Маяки», «Фото», «Полевые записи»), их можно включать по отдельности в Acrobat и при импорте в AutoCAD.</p></div>`);
   openSheet('Листы в PDF', body, btn('Сформировать', 'primary', () => {
     const opt = {bare: $('[data-bare]', body).checked};
     body.querySelectorAll('[data-w]').forEach(c => { opt[c.dataset.w] = c.checked; });
-    if(opt.bare && !opt.defects && !opt.beacons && !opt.notes){ toast('Выберите, что выгрузить', true); return; }
+    if(opt.bare && !opt.defects && !opt.beacons && !opt.photos && !opt.notes){ toast('Выберите, что выгрузить', true); return; }
     exportSheetsPdf(drs, opt);
   }));
 }
+
 
 
 
@@ -2532,7 +2702,7 @@ function mountPlanField(box, f, o, dirty, self){
     if(f.plan && f.plan.d !== id && f.plan.m.length && !(await ask('Отметка на другом чертеже будет заменена. Продолжить?', {ok: 'Заменить'}))) return;
     openPlan({drawing: dr, mode: 'edit', marks: f.plan && f.plan.d === id ? clone(f.plan.m) : [],
       self: {kind: self.kind, id: f.id || null, label: self.label(), color: f.mc},
-      onDone: (m, c) => { f.plan = m.length ? {d: id, m} : null; if(c) f.mc = c; dirty(); draw(); }});
+      onDone: (m, c) => { f.plan = m.length ? {d: id, m, ...(f.plan && f.plan.d === id && f.plan.g ? {g: f.plan.g} : {})} : null; if(c) f.mc = c; dirty(); draw(); }});
   });
   draw();
 }
@@ -2585,7 +2755,7 @@ function fmtQ(v, digits){ return v === null || v === undefined ? '' : v.toLocale
 function calcSV(d){
   const L = num(d.len), B = num(d.wid), Hh = num(d.depth);   // всё в миллиметрах
   const S = L !== null && B !== null ? L * B / 1e6 : null;
-  return {S, V: S !== null && Hh !== null ? S * Hh / 1000 : null};
+  return {S, V: S !== null && Hh !== null ? L * B * Hh / 1e9 : null};
 }
 
 
@@ -2614,9 +2784,9 @@ function defectForm(id, preset, opts = {}){
   const f = ex ? clone(ex) : Object.assign(blankDefect(), clone(preset || {}));
   f.pics = f.pics || [];
   const ref = {added: []};
-  const label = () => String(ex ? ex.no : nextDefectNo(o));
+  const label = () => groupLabel(o, 'defect', f.plan, f.id, String(ex ? ex.no : nextDefectNo(o)));
   const body = h(`<div>
-    ${f._from ? `<p class="notice">Новый дефект в том же месте, что и № ${esc(f._from)}: оси, этаж, конструкция и отметка на чертеже скопированы. Впишите наименование и сохраните.</p>` : ''}
+    ${f._from ? `<p class="notice">Новый дефект в том же месте, что и № ${esc(f._from)}: его номер добавится к той же выноске через «;». Оси, этаж и конструкция скопированы — впишите наименование и сохраните.</p>` : ''}
     ${placeFieldsHTML(f, o, 'd')}
     <div class="group"><p class="group-title">Дефект</p>
       <div class="field"><label for="d-tn">Наименование дефекта</label>
@@ -2687,7 +2857,7 @@ function defectForm(id, preset, opts = {}){
   function drawCalc(){
     const c = $('[data-calc]', pbox); if(!c) return;
     const {S, V} = calcSV(f);
-    c.innerHTML = `<span>Площадь S = <b>${S !== null ? fmtSig(S) + ' м²' : '—'}</b></span><span>Объём V = <b>${V !== null ? fmtSig(V) + ' м³' : '—'}</b></span>`;
+    c.innerHTML = `<span>Площадь S, м²: <b>${S !== null ? fmtSig(S) : '—'}</b></span><span>Объём V, м³: <b>${V !== null ? fmtSig(V) : '—'}</b></span><span class="small">размеры — в мм, площадь и объём — в м² и м³</span>`;
   }
   function drawParams(){
     body.querySelectorAll('[data-ptype] button').forEach(x => x.classList.toggle('on', x.dataset.v === f.ptype));
@@ -2731,16 +2901,12 @@ function defectForm(id, preset, opts = {}){
       o.defects.push(f);
     }
     if(f.photos.trim()) o.lastPhoto = f.photos.trim();
+    syncGroup(o, 'defect', ex || f);
     if(!save()) return;
     ref.node.committed = true;
     render();
     if(again){
-      let plan = null;
-      if(f.plan){
-        plan = clone(f.plan);
-        const pdr = o.drawings.find(x => x.id === plan.d), Mx = pdr ? sheetMetrics(pdr) : null;
-        if(Mx) for(const m of plan.m) if(m.lab) m.lab = [m.lab[0], round5(Math.min(1, m.lab[1] + Mx.text * 2.2 / pdr.h))];
-      }
+      const plan = joinPlan(ex || f); save();
       defectForm(null, {axes: clone(f.axes), axesText: f.axesText, locText: f.locText, floor: f.floor, construction: f.construction, element: f.element, plan, mc: f.mc, _from: f.no}, {replace: true});
       toast(`Дефект № ${f.no} сохранён, место сохранено`);
       return;
@@ -2795,16 +2961,20 @@ function typePicker(onPick){
 
 /* ===================== Маяки ===================== */
 function isBrittle(b){ return BRITTLE.includes(b.kind); }
-function series(b){
-  const pts = [], init = num(b.initial);
-  if(b.installed && (init !== null || isBrittle(b))) pts.push({d: b.installed, v: init !== null ? init : 0, init: true});
+const TWO_AXIS = ['Измерительный (щелемер)', 'Угловой измерительный (щелемер)'];
+const isTwoAxis = b => TWO_AXIS.includes(b.kind);
+// ряд отсчётов: ось 'x' — раскрытие (или единственный отсчёт), 'y' — сдвиг
+function series(b, axis = 'x'){
+  const pts = [], init = num(axis === 'y' ? b.initialY : b.initial);
+  if(b.installed && (init !== null || isBrittle(b) || (axis === 'y' && isTwoAxis(b) && num(b.initial) !== null))) pts.push({d: b.installed, v: init !== null ? init : 0, init: true});
   for(const r of b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)))){
-    let v = num(r.value);
+    let v = num(axis === 'y' ? r.valueY : r.value);
     if(isBrittle(b)) v = r.state === 'Разрыв' ? v : (v === null ? 0 : v);
     if(v !== null && r.date) pts.push({d: r.date, v, brk: r.state === 'Разрыв', r});
   }
-  return pts;
+  return pts.sort((a, b) => String(a.d).localeCompare(String(b.d)) || (a.init ? -1 : b.init ? 1 : 0));
 }
+
 function beaconStatus(b, o){
   const thr = num(o.threshold) ?? 0.1;
   if(isBrittle(b)){
@@ -2812,20 +2982,27 @@ function beaconStatus(b, o){
     if(brk) return {cls: 'warn', text: `разрыв ${fmtDate(brk.date)}`};
     return {cls: 'ok', text: b.readings.length ? 'целый' : 'нет замеров'};
   }
-  const pts = series(b);
-  if(pts.length < 2) return {cls: 'minor', text: pts.length ? 'один отсчёт' : 'нет замеров'};
-  const d = pts[pts.length - 1].v - pts[pts.length - 2].v;
-  return {cls: Math.abs(d) <= thr ? 'ok' : 'warn', text: `Δ ${fmtNum(d, true)} мм`};
+  const last = pts => pts.length >= 2 ? pts[pts.length - 1].v - pts[pts.length - 2].v : null;
+  const px = series(b), dx = last(px);
+  if(dx === null) return {cls: 'minor', text: px.length ? 'один отсчёт' : 'нет замеров'};
+  if(isTwoAxis(b)){
+    const dy = last(series(b, 'y'));
+    const big = Math.abs(dx) > thr || (dy !== null && Math.abs(dy) > thr);
+    return {cls: big ? 'warn' : 'ok', text: `ΔX ${fmtNum(dx, true)}${dy !== null ? `; ΔY ${fmtNum(dy, true)}` : ''} мм`};
+  }
+  return {cls: Math.abs(dx) <= thr ? 'ok' : 'warn', text: `Δ ${fmtNum(dx, true)} мм`};
 }
+
 function nextBeaconNo(o){
   const n = o.beacons.reduce((m, b) => { const t = lastNumTok(b.num); return Math.max(m, t ? +t : 0); }, 0);
   return 'М-' + (n + 1);
 }
-function chartSVG(pts, small){
+function chartSVG(pts, small, pts2){
   if(!pts.length) return '';
+  const all = pts2 && pts2.length ? pts.concat(pts2) : pts;
   const W = small ? 96 : 340, H = small ? 34 : 180;
   const L = small ? 3 : 42, R = small ? 3 : 12, T = small ? 4 : 12, B = small ? 4 : 26;
-  const xs = pts.map(p => Date.parse(p.d)), ys = pts.map(p => p.v);
+  const xs = all.map(p => Date.parse(p.d)), ys = all.map(p => p.v);
   let x0 = Math.min(...xs), x1 = Math.max(...xs); if(x1 === x0){ x0 -= 3 * 864e5; x1 += 3 * 864e5; }
   let y0 = Math.min(...ys), y1 = Math.max(...ys);
   if(y1 - y0 < 0.2){ const m = (y0 + y1) / 2; y0 = m - 0.1; y1 = m + 0.1; }
@@ -2834,7 +3011,8 @@ function chartSVG(pts, small){
   y0 = Math.floor(y0 / step + 1e-9) * step; y1 = Math.ceil(y1 / step - 1e-9) * step;
   if(y1 === y0) y1 = y0 + step;
   const X = t => L + (t - x0) / (x1 - x0) * (W - L - R), Y = v => T + (y1 - v) / (y1 - y0) * (H - T - B);
-  const d = pts.map((p, i) => (i ? 'L' : 'M') + X(xs[i]).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' ');
+  const line = (ps, cls) => ps.length ? `<path class="line${cls}" d="${ps.map((p, i) => (i ? 'L' : 'M') + X(Date.parse(p.d)).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' ')}"/>`
+    + ps.map(p => `<circle class="pt${cls}${p.brk ? ' break' : ''}" cx="${X(Date.parse(p.d)).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${small ? 2 : 4}"/>`).join('') : '';
   let grid = '';
   if(!small){
     const nt = Math.round((y1 - y0) / step);
@@ -2842,102 +3020,145 @@ function chartSVG(pts, small){
       const v = y0 + step * i, y = Y(v).toFixed(1);
       grid += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text x="${L - 6}" y="${(+y + 4)}" text-anchor="end">${fmtNum(Math.round(v * 100) / 100)}</text>`;
     }
-    grid += `<text x="${L}" y="${H - 6}">${fmtDate(pts[0].d)}</text>`;
-    if(pts.length > 1) grid += `<text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtDate(pts[pts.length - 1].d)}</text>`;
+    const ds = all.map(p => p.d).sort();
+    grid += `<text x="${L}" y="${H - 6}">${fmtDate(ds[0])}</text>`;
+    if(ds.length > 1 && ds[0] !== ds[ds.length - 1]) grid += `<text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtDate(ds[ds.length - 1])}</text>`;
   }
-  const dots = pts.map((p, i) => `<circle class="pt${p.brk ? ' break' : ''}" cx="${X(xs[i]).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="${small ? 2 : 4}"/>`).join('');
-  return `<svg class="${small ? 'spark' : 'chart'}" viewBox="0 0 ${W} ${H}" ${small ? `width="${W}" height="${H}"` : ''} role="img" aria-label="График раскрытия, мм">
-    ${small ? '' : `<g class="grid">${grid}</g>`}<path class="line" d="${d}"/>${dots}</svg>`;
+  return `<svg class="${small ? 'spark' : 'chart'}" viewBox="0 0 ${W} ${H}" ${small ? `width="${W}" height="${H}"` : ''} role="img" aria-label="График отсчётов, мм">
+    ${small ? '' : `<g class="grid">${grid}</g>`}${line(pts, '')}${pts2 ? line(pts2, ' y') : ''}</svg>`;
 }
+
 function beaconForm(id, preset, opts = {}){
   const o = cur(); if(!o) return;
   const ex = id ? o.beacons.find(b => b.id === id) : null;
-  const f = ex ? clone(ex) : {num: nextBeaconNo(o), kind: 'Щелемер', axes: {n: [], l: []}, locText: '', floor: '', construction: '', element: '',
-    installed: today(), initial: '', note: '', readings: [], plan: null, ...clone(preset || {})};
-  const ref = {};
+  const f = ex ? clone(ex) : {num: nextBeaconNo(o), kind: TWO_AXIS[0], axes: {n: [], l: []}, locText: '', floor: '', construction: '', element: '',
+    installed: today(), initial: '', initialY: '', note: '', readings: [], pics: [], plan: null, ...clone(preset || {})};
+  f.pics = f.pics || [];
+  const from = f._from; delete f._from;
+  const ref = {added: []};
   const body = h(`<div>
+    ${from ? `<p class="notice">Новый маяк на том же месте, что и ${esc(from)}: наименование добавится к той же выноске через «;».</p>` : ''}
     <div class="grid2 field">
       <div class="field"><label for="b-no">Номер маяка</label><input id="b-no" class="inp" data-f="num" value="${esc(f.num)}" autocomplete="off"></div>
       <div class="field"><label for="b-dt">Дата установки</label><input id="b-dt" type="date" class="inp" data-f="installed" value="${esc(f.installed)}"></div>
     </div>
     <div class="field"><div class="lbl">Тип маяка</div>
-      <div class="chips" data-kind>${KINDS.map(k => `<button type="button" class="chip${f.kind === k ? ' on' : ''}" data-k="${k}">${k}</button>`).join('')}</div></div>
-    <div class="field"><label for="b-in">Начальный отсчёт, мм</label>
-      <input id="b-in" class="inp" data-f="initial" inputmode="decimal" value="${esc(f.initial)}" placeholder="для щелемера и индикатора">
-      <div class="hint">Для гипсовых и стеклянных маяков можно не заполнять: на дату установки принимается 0.</div></div>
+      <div class="chips" data-kind>${KINDS.map(k => `<button type="button" class="chip${f.kind === k ? ' on' : ''}" data-k="${esc(k)}">${esc(k)}</button>`).join('')}</div></div>
+    <div data-init></div>
+    <div class="field"><div class="lbl">Фото маяка при установке</div><div data-pics></div></div>
     <div class="group"><p class="group-title">Место</p>${placeFieldsHTML(f, o, 'b')}</div>
     <div class="field"><label for="b-nt">Примечание</label><textarea id="b-nt" class="inp" data-f="note">${esc(f.note)}</textarea></div>
   </div>`);
+  const ibox = $('[data-init]', body);
+  const drawInit = () => {
+    ibox.innerHTML = isTwoAxis(f)
+      ? `<div class="grid2 field"><div class="field"><label for="b-ix">Начальный отсчёт X (раскрытие), мм</label><input id="b-ix" class="inp" data-f="initial" inputmode="decimal" value="${esc(f.initial)}" placeholder="обычно 0"></div>
+         <div class="field"><label for="b-iy">Начальный отсчёт Y (сдвиг), мм</label><input id="b-iy" class="inp" data-f="initialY" inputmode="decimal" value="${esc(f.initialY || '')}" placeholder="обычно 0"></div></div>
+         <p class="hint" style="margin:-6px 0 14px">X — поперёк трещины (раскрытие), Y — вдоль трещины (сдвиг) по шкалам перекрестия.</p>`
+      : `<div class="field"><label for="b-in">Начальный отсчёт, мм</label><input id="b-in" class="inp" data-f="initial" inputmode="decimal" value="${esc(f.initial)}" placeholder="для индикатора">
+         <div class="hint">Для гипсовых, стеклянных и цементных маяков можно не заполнять: на дату установки принимается 0.</div></div>`;
+  };
+  drawInit();
   $('[data-kind]', body).addEventListener('click', e => {
     const b = e.target.closest('[data-k]'); if(!b) return;
     f.kind = b.dataset.k; body.querySelectorAll('[data-kind] .chip').forEach(x => x.classList.toggle('on', x === b));
-    if(ref.node) ref.node.dirty = true;
+    drawInit(); if(ref.node) ref.node.dirty = true;
   });
-  wirePlaceFields(body, f, o, ref, {kind: 'beacon', label: () => f.num});
-  const foot = [];
-  if(ex) foot.push(btn('Удалить', 'danger', async () => {
-    if(!(await ask(`Удалить маяк ${ex.num} вместе со всеми замерами?`, {ok: 'Удалить', danger: true}))) return;
-    o.beacons = o.beacons.filter(b => b !== ex); save(); ref.node.committed = true; closeTop(false, 2); render(); toast('Маяк удалён');
-  }));
-  foot.push(btn('Сохранить', 'primary', () => {
+  wirePlaceFields(body, f, o, ref, {kind: 'beacon', label: () => groupLabel(o, 'beacon', f.plan, f.id, f.num)});
+  mountPics($('[data-pics]', body), f, ref);
+  function commit(again){
     if(!f.num.trim()){ toast('Укажите номер маяка', true); return; }
     f.updated = Date.now();
     let target;
-    if(ex){ Object.assign(ex, f); target = ex; }
-    else { f.id = uid(); f.created = Date.now(); o.beacons.push(f); target = f; }
+    if(ex){
+      const removed = (ex.pics || []).filter(p => !f.pics.some(q => q.id === p.id));
+      Object.assign(ex, f); target = ex;
+      removed.forEach(p => MEDIA.del(p.id).catch(() => {}));
+    } else { f.id = uid(); f.created = Date.now(); o.beacons.push(f); target = f; }
+    syncGroup(o, 'beacon', target);
     if(!save()) return;
     ref.node.committed = true; render();
+    if(again){
+      const plan = joinPlan(target); save();
+      beaconForm(null, {axes: clone(target.axes), axesText: target.axesText, locText: target.locText, floor: target.floor, construction: target.construction, element: target.element,
+        kind: target.kind, plan, mc: target.mc, _from: target.num}, {replace: true, fromPlan: opts.fromPlan});
+      toast(`Маяк ${target.num} сохранён`);
+      return;
+    }
     if(ex){ closeTop(false); refreshBeaconDetail(); }
     else if(opts.fromPlan) closeTop(false);
     else beaconDetail(target.id, {replace: true});
     toast(`Маяк ${f.num} сохранён`);
+  }
+  const foot = [];
+  if(ex) foot.push(btn('Удалить', 'danger', async () => {
+    if(!(await ask(`Удалить маяк ${ex.num} вместе со всеми замерами и фото?`, {ok: 'Удалить', danger: true}))) return;
+    o.beacons = o.beacons.filter(b => b !== ex);
+    const ids = [...(ex.pics || []), ...f.pics, ...ex.readings.flatMap(r => r.pics || [])].map(p => p.id);
+    save(); ref.node.committed = true; closeTop(false, 2); render(); toast('Маяк удалён');
+    ids.forEach(i => MEDIA.del(i).catch(() => {}));
   }));
-  ref.node = openSheet(ex ? `Маяк ${ex.num}` : 'Новый маяк', body, foot, {trackDirty: true});
+  foot.push(btn('Ещё маяк здесь', '', () => commit(true)));
+  foot.push(btn('Сохранить', 'primary', () => commit(false)));
+  ref.node = openSheet(ex ? `Маяк ${ex.num}` : 'Новый маяк', body, foot, {trackDirty: true, replace: !!opts.replace});
+  ref.node.onClose = () => { if(!ref.node.committed) ref.added.forEach(i => MEDIA.del(i).catch(() => {})); };
   if(preset && preset.plan) ref.node.dirty = true;
 }
+
 let detailRef = null;
 function beaconDetailBody(b, o){
-  const pts = series(b), st = beaconStatus(b, o);
+  const two = isTwoAxis(b), px = series(b), py = two ? series(b, 'y') : [], st = beaconStatus(b, o);
   const last = b.readings.slice().sort((x, y) => String(y.date).localeCompare(String(x.date)))[0];
-  const total = pts.length >= 2 ? fmtNum(pts[pts.length - 1].v - pts[0].v, true) + ' мм' : '';
-  let rate = '';
-  if(pts.length >= 2){
-    const a = pts[pts.length - 2], z = pts[pts.length - 1], days = daysBetween(a.d, z.d), dv = z.v - a.v;
-    rate = `${fmtNum(dv, true)} мм` + (days > 0 ? ` за ${plural(days, ['день','дня','дней'])} (≈ ${fmtNum(dv / days * 30, true)} мм/мес)` : '');
-  }
+  const tot = ps => ps.length >= 2 ? fmtNum(ps[ps.length - 1].v - ps[0].v, true) : null;
+  const intv = ps => {
+    if(ps.length < 2) return null;
+    const a = ps[ps.length - 2], z = ps[ps.length - 1], days = daysBetween(a.d, z.d), dv = z.v - a.v;
+    return `${fmtNum(dv, true)} мм` + (days > 0 ? ` за ${plural(days, ['день','дня','дней'])} (≈ ${fmtNum(dv / days * 30, true)} мм/мес)` : '');
+  };
+  const total = two ? [tot(px) !== null ? `X ${tot(px)}` : '', tot(py) !== null ? `Y ${tot(py)}` : ''].filter(Boolean).join('; ') : tot(px);
+  const rate = two ? [intv(px) ? `X ${intv(px)}` : '', intv(py) ? `Y ${intv(py)}` : ''].filter(Boolean).join('<br>') : intv(px);
   const dr = b.plan && o.drawings.find(x => x.id === b.plan.d);
-  const rows = b.readings.slice().sort((x, y) => String(y.date).localeCompare(String(x.date))).map(r =>
-    `<tr data-r="${r.id}"><td>${fmtDate(r.date)}</td><td class="n">${esc(r.value)}</td>${isBrittle(b) ? `<td>${esc(r.state || '')}</td>` : ''}<td>${esc(r.note || '')}</td></tr>`).join('');
+  const reads = b.readings.slice().sort((x, y) => String(y.date).localeCompare(String(x.date)));
+  const rows = reads.map(r => `<tr data-r="${r.id}"><td>${fmtDate(r.date)}</td><td class="n">${esc(r.value)}</td>${two ? `<td class="n">${esc(r.valueY || '')}</td>` : ''}${isBrittle(b) ? `<td>${esc(r.state || '')}</td>` : ''}<td class="n">${(r.pics || []).length || ''}</td><td>${esc(r.note || '')}</td></tr>`).join('');
+  const cycles = [{date: b.installed, title: 'Установка', pics: b.pics || []}, ...reads.slice().reverse().map(r => ({date: r.date, title: 'Замер', pics: r.pics || []}))].filter(c => c.pics.length);
   return `
     <dl class="kv">
       <dt>Тип</dt><dd>${esc(b.kind)}</dd>
       <dt>Место</dt><dd>${esc(locStr(b) || '—')}</dd>
       ${b.floor || b.construction || b.element ? `<dt>Привязка</dt><dd>${esc([b.floor, b.construction, b.element].filter(Boolean).join(', '))}</dd>` : ''}
       ${dr ? `<dt>Чертёж</dt><dd>${esc(dr.name)}</dd>` : ''}
-      <dt>Установлен</dt><dd>${fmtDate(b.installed) || '—'}${b.initial ? `, отсчёт ${esc(b.initial)} мм` : ''}</dd>
+      <dt>Установлен</dt><dd>${fmtDate(b.installed) || '—'}${b.initial ? `, отсчёт ${two ? `X ${esc(b.initial)}${b.initialY ? `, Y ${esc(b.initialY)}` : ''}` : esc(b.initial)} мм` : ''}</dd>
       <dt>Последний замер</dt><dd>${last ? `${fmtDate(last.date)} (${plural(daysBetween(last.date, today()), ['день','дня','дней'])} назад)` : 'нет'}</dd>
-      ${total ? `<dt>С начала</dt><dd>${total}</dd>` : ''}
-      ${rate ? `<dt>Последний интервал</dt><dd>${rate} <span class="tag ${st.cls}">${st.cls === 'ok' ? (isBrittle(b) ? 'целый' : 'в пределах порога') : st.text.startsWith('разрыв') ? esc(st.text) : 'больше порога'}</span></dd>` : (st.cls === 'warn' ? `<dt>Состояние</dt><dd><span class="tag warn">${esc(st.text)}</span></dd>` : '')}
+      ${total ? `<dt>С начала</dt><dd>${total} мм</dd>` : ''}
+      ${rate ? `<dt>Последний интервал</dt><dd>${rate} <span class="tag ${st.cls}">${st.cls === 'ok' ? (isBrittle(b) ? 'целый' : 'в пределах порога') : String(st.text).startsWith('разрыв') ? esc(st.text) : 'больше порога'}</span></dd>` : (st.cls === 'warn' ? `<dt>Состояние</dt><dd><span class="tag warn">${esc(st.text)}</span></dd>` : '')}
       ${b.note ? `<dt>Примечание</dt><dd>${esc(b.note)}</dd>` : ''}
     </dl>
-    ${pts.length ? chartSVG(pts, false) : ''}
-    ${rows ? `<table class="readings"><thead><tr><th>Дата</th><th class="n">Отсчёт, мм</th>${isBrittle(b) ? '<th>Состояние</th>' : ''}<th>Примечание</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="hint">Нажмите на строку, чтобы исправить замер.</p>` : '<p class="muted">Замеров пока нет.</p>'}
+    ${px.length ? chartSVG(px, false, two ? py : null) + (two ? '<p class="hint" style="margin:-8px 0 14px">Красная линия — X (раскрытие), синяя — Y (сдвиг).</p>' : '') : ''}
+    ${rows ? `<table class="readings"><thead><tr><th>Дата</th><th class="n">${two ? 'X, мм' : 'Отсчёт, мм'}</th>${two ? '<th class="n">Y, мм</th>' : ''}${isBrittle(b) ? '<th>Состояние</th>' : ''}<th class="n">Фото</th><th>Примечание</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="hint">Нажмите на строку, чтобы исправить замер или добавить фото.</p>` : '<p class="muted">Замеров пока нет.</p>'}
+    ${cycles.length ? `<div class="lbl" style="margin-top:14px">Фото по циклам мониторинга</div>${cycles.map(c => `<div class="cycle"><div class="cycle-h">${esc(c.title)} ${fmtDate(c.date)}</div><div class="pics">${c.pics.map(p => `<button type="button" class="pic" data-view-pic="${p.id}"><img alt="" data-src="${p.id}"></button>`).join('')}</div></div>`).join('')}` : ''}
     ${dr ? `<div class="plan-prev" style="margin-top:14px"><canvas width="600" height="450"></canvas></div>` : ''}`;
 }
+
 function fillBeaconPreview(box, b, o){
+  box.querySelectorAll('img[data-src]').forEach(im => mediaURL(im.dataset.src).then(u => { if(u) im.src = u; }).catch(() => {}));
   const dr = b.plan && o.drawings.find(x => x.id === b.plan.d); const cv = $('.plan-prev canvas', box);
-  if(dr && cv) loadInk(dr).then(ink => renderCrop(cv, dr, b.plan.m, 'beacon', b.num, 600, ui().showInk ? ink : null, b.mc)).catch(() => {});
+  if(dr && cv) loadInk(dr).then(ink => renderCrop(cv, dr, b.plan.m, 'beacon', groupLabel(o, 'beacon', b.plan, b.id, b.num), 600, ui().showInk ? ink : null, b.mc)).catch(() => {});
 }
+
 
 function beaconDetail(id, opts = {}){
   const o = cur(); const b = o.beacons.find(x => x.id === id); if(!b) return;
   const body = h(`<div>${beaconDetailBody(b, o)}</div>`);
-  body.addEventListener('click', e => { const tr = e.target.closest('[data-r]'); if(tr) readingForm(b.id, tr.dataset.r); });
-  const node = openSheet(`Маяк ${b.num}`, body, [btn('Изменить', '', () => beaconForm(b.id)), btn('+ Замер', 'mark', () => readingForm(b.id))], {replace: !!opts.replace});
+  body.addEventListener('click', e => {
+    const pv = e.target.closest('[data-view-pic]'); if(pv){ photoViewer(pv.dataset.viewPic, 'Фото маяка'); return; }
+    const tr = e.target.closest('[data-r]'); if(tr) readingForm(b.id, tr.dataset.r);
+  });
+  const node = openSheet(`Маяк ${b.num}`, body, [btn('Изменить', '', () => beaconForm(b.id)), btn('+ Замер', 'mark', () => readingForm(b.id)), btn('Готово', 'primary', () => closeTop(false))], {replace: !!opts.replace});
   detailRef = {node, id: b.id};
   fillBeaconPreview(body, b, o);
 }
+
 function refreshBeaconDetail(){
   if(!detailRef || !detailRef.node.isConnected) return;
   const o = cur(); const b = o.beacons.find(x => x.id === detailRef.id); if(!b) return;
@@ -2949,14 +3170,21 @@ function refreshBeaconDetail(){
 function readingForm(bid, rid){
   const o = cur(); const b = o.beacons.find(x => x.id === bid); if(!b) return;
   const ex = rid ? b.readings.find(r => r.id === rid) : null;
-  const brittle = isBrittle(b);
-  const f = ex ? clone(ex) : {date: today(), value: '', state: brittle ? 'Целый' : '', note: ''};
+  const brittle = isBrittle(b), two = isTwoAxis(b);
+  const f = ex ? clone(ex) : {date: today(), value: '', valueY: '', state: brittle ? 'Целый' : '', note: '', pics: []};
+  f.pics = f.pics || [];
+  const ref = {added: []};
   const body = h(`<div>
-    <div class="field"><label for="r-dt">Дата замера</label><input id="r-dt" type="date" class="inp" data-f="date" value="${esc(f.date)}"></div>
+    <div class="field"><label for="r-dt">Дата замера (цикл мониторинга)</label><input id="r-dt" type="date" class="inp" data-f="date" value="${esc(f.date)}"></div>
     ${brittle ? `<div class="field"><div class="lbl">Состояние маяка</div><div class="seg" data-st>
       ${['Целый', 'Разрыв'].map(s => `<button type="button" data-v="${s}" class="${f.state === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>` : ''}
-    <div class="field"><label for="r-v">${brittle ? 'Ширина разрыва, мм' : 'Отсчёт, мм'}</label>
-      <input id="r-v" class="inp" data-f="value" inputmode="decimal" value="${esc(f.value)}" placeholder="${brittle ? 'если разрыв' : '0,00'}"></div>
+    ${two
+      ? `<div class="grid2 field"><div class="field"><label for="r-v">X — раскрытие, мм</label><input id="r-v" class="inp" data-f="value" inputmode="decimal" value="${esc(f.value)}" placeholder="0,00"></div>
+         <div class="field"><label for="r-vy">Y — сдвиг, мм</label><input id="r-vy" class="inp" data-f="valueY" inputmode="decimal" value="${esc(f.valueY || '')}" placeholder="0,00"></div></div>
+         <p class="hint" style="margin:-6px 0 14px">Отсчёты по шкалам перекрестия: X — поперёк трещины, Y — вдоль трещины.</p>`
+      : `<div class="field"><label for="r-v">${brittle ? 'Ширина разрыва, мм' : 'Отсчёт, мм'}</label>
+         <input id="r-v" class="inp" data-f="value" inputmode="decimal" value="${esc(f.value)}" placeholder="${brittle ? 'если разрыв' : '0,00'}"></div>`}
+    <div class="field"><div class="lbl">Фото маяка в этом цикле</div><div data-pics></div></div>
     <div class="field"><label for="r-nt">Примечание</label><input id="r-nt" class="inp" data-f="note" value="${esc(f.note)}" autocomplete="off"></div>
   </div>`);
   body.addEventListener('input', e => { const k = e.target.dataset.f; if(k) f[k] = e.target.value; });
@@ -2965,19 +3193,27 @@ function readingForm(bid, rid){
     const x = e.target.closest('button'); if(!x) return;
     f.state = x.dataset.v; stBox.querySelectorAll('button').forEach(y => y.classList.toggle('on', y === x));
   });
+  mountPics($('[data-pics]', body), f, ref);
   const foot = [];
   if(ex) foot.push(btn('Удалить', 'danger', async () => {
-    if(!(await ask('Удалить замер?', {ok: 'Удалить', danger: true}))) return;
-    b.readings = b.readings.filter(r => r !== ex); b.updated = Date.now(); save(); closeTop(false); refreshBeaconDetail(); render();
+    if(!(await ask('Удалить замер вместе с его фото?', {ok: 'Удалить', danger: true}))) return;
+    const ids = [...(ex.pics || []), ...f.pics].map(p => p.id);
+    b.readings = b.readings.filter(r => r !== ex); b.updated = Date.now(); save(); ref.node.committed = true; closeTop(false); refreshBeaconDetail(); render();
+    ids.forEach(i => MEDIA.del(i).catch(() => {}));
   }));
   foot.push(btn('Сохранить', 'primary', () => {
     if(!f.date){ toast('Укажите дату', true); return; }
-    if(!brittle && num(f.value) === null){ toast('Введите отсчёт числом', true); return; }
-    if(ex) Object.assign(ex, f); else { f.id = uid(); b.readings.push(f); }
-    b.updated = Date.now(); save(); closeTop(false); refreshBeaconDetail(); render(); toast('Замер сохранён');
+    if(!brittle && num(f.value) === null){ toast(two ? 'Введите отсчёт X числом' : 'Введите отсчёт числом', true); return; }
+    if(ex){
+      const removed = (ex.pics || []).filter(p => !f.pics.some(q => q.id === p.id));
+      Object.assign(ex, f); removed.forEach(p => MEDIA.del(p.id).catch(() => {}));
+    } else { f.id = uid(); b.readings.push(f); }
+    b.updated = Date.now(); save(); ref.node.committed = true; closeTop(false); refreshBeaconDetail(); render(); toast('Замер сохранён');
   }));
-  openSheet(ex ? 'Замер' : `Замер, ${b.num}`, body, foot, {trackDirty: true});
+  ref.node = openSheet(ex ? 'Замер' : `Замер, ${b.num}`, body, foot, {trackDirty: true});
+  ref.node.onClose = () => { if(!ref.node.committed) ref.added.forEach(i => MEDIA.del(i).catch(() => {})); };
 }
+
 
 /* ===================== Объекты ===================== */
 function axesFieldsHTML(f, p){
@@ -3145,21 +3381,20 @@ function defectsCSV(o){
 
 
 function beaconsCSV(o){
-  const rows = [['Маяк','Тип','Оси','Уточнение места','Этаж, отметка','Конструкция','Элемент','Дата установки','Начальный отсчёт, мм',
-    'Дата замера','Отсчёт, мм','Состояние','Изменение от начала, мм','Примечание к замеру']];
+  const rows = [['Маяк','Тип','Оси','Уточнение места','Этаж, отметка','Конструкция','Элемент','Дата установки','Начальный отсчёт X, мм','Начальный отсчёт Y, мм',
+    'Дата замера','Отсчёт X (или единственный), мм','Отсчёт Y, мм','Состояние','Изменение X от начала, мм','Изменение Y от начала, мм','Фото, шт.','Примечание к замеру']];
+  const dlt = (v, v0) => v !== null && v0 !== null ? fmtNum(Math.round((v - v0) * 1000) / 1000, true).replace('−', '-') : '';
   for(const b of o.beacons){
-    const base = [b.num, b.kind, axesOf(b), b.locText, b.floor, b.construction, b.element, fmtDate(b.installed), b.initial];
-    const pts = series(b), v0 = pts.length ? pts[0].v : null;
+    const two = isTwoAxis(b);
+    const base = [b.num, b.kind, axesOf(b), b.locText, b.floor, b.construction, b.element, fmtDate(b.installed), b.initial, two ? (b.initialY || '') : ''];
+    const px = series(b), py = two ? series(b, 'y') : [], x0 = px.length ? px[0].v : null, y0 = py.length ? py[0].v : null;
     const rs = b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
-    if(!rs.length) rows.push([...base, '', '', '', '', '']);
-    for(const r of rs){
-      const v = num(r.value);
-      const dv = v !== null && v0 !== null ? fmtNum(Math.round((v - v0) * 1000) / 1000, true).replace('−', '-') : '';
-      rows.push([...base, fmtDate(r.date), r.value, r.state || '', dv, r.note || '']);
-    }
+    if(!rs.length) rows.push([...base, '', '', '', '', '', '', (b.pics || []).length || '', '']);
+    for(const r of rs) rows.push([...base, fmtDate(r.date), r.value, two ? (r.valueY || '') : '', r.state || '', dlt(num(r.value), x0), two ? dlt(num(r.valueY), y0) : '', (r.pics || []).length || '', r.note || '']);
   }
   return toCSV(rows);
 }
+
 
 /* ===================== Выгрузка: Word ===================== */
 const xe = s => String(s ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -3223,7 +3458,7 @@ async function buildDocx(o, op, progress){
           const dr = drOf(d);
           if(dr){
             const cv = document.createElement('canvas');
-            if(await renderCrop(cv, dr, d.plan.m, 'defect', String(d.no), 1000, op.ink ? await loadInk(dr) : null, d.mc)) c3 += P(pic(await canvasU8(cv, 0.85), cv.width, cv.height, WC[2] - 150, 3200), {jc: 'center'});
+            if(await renderCrop(cv, dr, d.plan.m, 'defect', groupLabel(o, 'defect', d.plan, d.id, String(d.no)), 1000, op.ink ? await loadInk(dr) : null, d.mc)) c3 += P(pic(await canvasU8(cv, 0.85), cv.width, cv.height, WC[2] - 150, 3200), {jc: 'center'});
             cv.width = cv.height = 0;
           }
         }
@@ -3238,35 +3473,84 @@ async function buildDocx(o, op, progress){
   }
 
   if(op.beacons && o.beacons.length){
-    const WB = [700, 1100, 1700, 2700, 1900, 0, 1700, 1900]; WB[5] = FULL - sum(WB);
-    const HEADB = ['№ п/п', 'Маяк', 'Тип маяка', 'Месторасположение маяка', 'Дата установки, начальный отсчёт', 'Результаты замеров (дата — отсчёт)', 'Изменение с начала, мм', 'Состояние'];
-    const list = o.beacons.slice().sort((a, b) => String(a.num).localeCompare(String(b.num), 'ru', {numeric: true}));
+    const list = sortRefs('beacon', o.beacons);
+    const lastPic = b => {
+      for(const r of b.readings.slice().sort((x, y) => String(y.date).localeCompare(String(x.date)))) if((r.pics || []).length) return {p: r.pics[0], date: r.date};
+      return (b.pics || []).length ? {p: b.pics[0], date: b.installed} : null;
+    };
+    const withPics = op.pics && list.some(b => lastPic(b));
+    const WB = withPics ? [650, 1000, 1500, 2300, 1700, 0, 1500, 1600, 2700] : [700, 1100, 1700, 2700, 1900, 0, 1700, 1900];
+    WB[5] = FULL - sum(WB);
+    const HEADB = ['№ п/п', 'Маяк', 'Тип маяка', 'Месторасположение маяка', 'Дата установки, начальный отсчёт', 'Результаты замеров (дата — отсчёт)', 'Изменение с начала, мм', 'Состояние', ...(withPics ? ['Фото (последний цикл)'] : [])];
     let tbl = tblOpen(WB) + headRows(WB, HEADB), n = 0;
     for(const [key, group] of groupByFloor(list)){
       if(key) tbl += sectionRow(key, WB);
       for(const b of group){
         progress(`Word: маяк ${++n} из ${list.length}…`);
-        const pts = series(b), rs = b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
-        const total = pts.length >= 2 ? fmtNum(Math.round((pts[pts.length - 1].v - pts[0].v) * 1000) / 1000, true) : '—';
+        const two = isTwoAxis(b), px = series(b), py = two ? series(b, 'y') : [];
+        const tot = ps => ps.length >= 2 ? fmtNum(Math.round((ps[ps.length - 1].v - ps[0].v) * 1000) / 1000, true) : null;
+        const total = two ? ([tot(px) !== null ? 'X ' + tot(px) : '', tot(py) !== null ? 'Y ' + tot(py) : ''].filter(Boolean).join('; ') || '—') : (tot(px) ?? '—');
         let state = '—';
         if(isBrittle(b)) state = beaconStatus(b, o).text;
-        else if(pts.length >= 2) state = `за последний интервал ${fmtNum(Math.round((pts[pts.length - 1].v - pts[pts.length - 2].v) * 1000) / 1000, true)} мм`;
+        else if(px.length >= 2) state = 'за последний интервал ' + beaconStatus(b, o).text.replace(/^Δ /, '');
+        const rs = b.readings.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
         const loc = axesOf(b);
         const cLoc = (loc ? P(R(loc), {jc: 'center'}) : '') + linesC(b.locText) + linesC([b.construction, b.element].filter(Boolean).join(', '));
-        const cInst = P(R(fmtDate(b.installed) || '—'), {jc: 'center'}) + (b.initial ? P(R(`отсчёт ${b.initial} мм`), {jc: 'center'}) : '');
-        const cRead = rs.length ? rs.map(r => P(R(`${fmtDate(r.date)} — ${r.value ? r.value + ' мм' : ''}${r.state ? (r.value ? ', ' : '') + r.state.toLowerCase() : ''}`), {jc: 'center'})).join('') : P(R('замеров нет', {i: true}), {jc: 'center'});
-        tbl += `<w:tr>${cell(WB[0], P(R(String(n)), {jc: 'center'}))}${cell(WB[1], P(R(b.num), {jc: 'center'}))}${cell(WB[2], P(R(b.kind), {jc: 'center'}))}${cell(WB[3], cLoc)}${cell(WB[4], cInst)}${cell(WB[5], cRead)}${cell(WB[6], P(R(total), {jc: 'center'}))}${cell(WB[7], P(R(state), {jc: 'center'}))}</w:tr>`;
+        const init = b.initial ? (two ? `X ${b.initial}; Y ${b.initialY || 0}` : b.initial) : '';
+        const cInst = P(R(fmtDate(b.installed) || '—'), {jc: 'center'}) + (init ? P(R(`отсчёт ${init} мм`), {jc: 'center'}) : '');
+        const cRead = rs.length ? rs.map(r => P(R(two
+            ? `${fmtDate(r.date)} — X ${r.value || '—'}${r.valueY ? `; Y ${r.valueY}` : ''} мм`
+            : `${fmtDate(r.date)} — ${r.value ? r.value + ' мм' : ''}${r.state ? (r.value ? ', ' : '') + r.state.toLowerCase() : ''}`), {jc: 'center'})).join('')
+          : P(R('замеров нет', {i: true}), {jc: 'center'});
+        let cPic = '';
+        if(withPics){
+          const lp = lastPic(b);
+          if(lp){
+            const blob = await MEDIA.get(lp.p.id);
+            if(blob){
+              const im = await loadImage(blob);
+              try { const r = await resizeToJpeg(im.img, im.w, im.h, 1200, 0.8); cPic = P(pic(new Uint8Array(await r.blob.arrayBuffer()), r.w, r.h, WB[8] - 150, 3600), {jc: 'center'}) + P(R(fmtDate(lp.date), {sz: 18}), {jc: 'center'}); }
+              finally { URL.revokeObjectURL(im.url); }
+            }
+          }
+        }
+        tbl += `<w:tr>${cell(WB[0], P(R(String(n)), {jc: 'center'}))}${cell(WB[1], P(R(b.num), {jc: 'center'}))}${cell(WB[2], P(R(b.kind), {jc: 'center'}))}${cell(WB[3], cLoc)}${cell(WB[4], cInst)}${cell(WB[5], cRead)}${cell(WB[6], P(R(total), {jc: 'center'}))}${cell(WB[7], P(R(state), {jc: 'center'}))}${withPics ? cell(WB[8], cPic) : ''}</w:tr>`;
       }
     }
     body += P(R('Ведомость маяков', {b: true, sz: 28}), {jc: 'center', after: 60, pageBreak: !!body}) + objLine + tbl + '</w:tbl>';
   }
 
+  if(op.photos && o.photos.length){
+    const WP = [900, 0, 4300]; WP[1] = FULL - sum(WP);
+    const list = o.photos.slice().sort((a, b) => a.no - b.no);
+    let tbl = tblOpen(WP) + `<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>${['№', 'Фото', 'Месторасположение'].map((t, i) => cell(WP[i], P(R(t, {b: true, sz: 20}), {jc: 'center'}))).join('')}</w:tr>`, n = 0;
+    for(const [key, group] of groupByFloor(list)){
+      if(key) tbl += sectionRow(key, WP);
+      for(const ph of group){
+        progress(`Word: фото ${++n} из ${list.length}…`);
+        const pics = ph.pics || [], one = pics.length <= 1;
+        const maxW = one ? Math.min(WP[1] - 200, 7400) : Math.floor((WP[1] - 300) / 2) - 60, maxH = one ? 5400 : 3900;
+        let runs = '';
+        for(const p of pics){
+          const blob = await MEDIA.get(p.id); if(!blob) continue;
+          const im = await loadImage(blob);
+          try { const r = await resizeToJpeg(im.img, im.w, im.h, 1600, 0.8); runs += (runs ? R('  ') : '') + pic(new Uint8Array(await r.blob.arrayBuffer()), r.w, r.h, maxW, maxH); }
+          finally { URL.revokeObjectURL(im.url); }
+        }
+        const loc = axesOf(ph);
+        const cLoc = (ph.room ? P(R('Помещение ' + (/^\d/.test(ph.room) ? '№ ' : '') + ph.room), {jc: 'center'}) : '') + (loc ? P(R(loc), {jc: 'center'}) : '') + linesC(ph.locText)
+          + linesC([ph.construction, ph.element].filter(Boolean).join(', ')) + (ph.note ? linesC(ph.note, {i: true}) : '');
+        tbl += `<w:tr>${cell(WP[0], P(R('Ф-' + ph.no), {jc: 'center'}))}${cell(WP[1], runs ? P(runs, {jc: 'center', before: 60, after: 60}) : P(R('нет снимков', {i: true}), {jc: 'center'}))}${cell(WP[2], cLoc)}</w:tr>`;
+      }
+    }
+    body += P(R('Фотоприложение', {b: true, sz: 28}), {jc: 'center', after: 60, pageBreak: !!body}) + objLine + tbl + '</w:tbl>';
+  }
   if(op.maps){
     const drs = o.drawings.filter(dr => planItems(o, dr.id).length);
     let k = 0;
     for(const dr of drs){
       progress(`Word: схема ${k + 1} из ${drs.length}…`);
-      const c = await renderMap(dr, o, 3000, op.ink ? await loadInk(dr) : null, {defects: !!op.defects, beacons: !!op.beacons});
+      const c = await renderMap(dr, o, 3000, op.ink ? await loadInk(dr) : null, {defects: !!op.defects, beacons: !!op.beacons, photos: !!op.photos});
       const u8 = await canvasU8(c, 0.85);
       k++;
       if(k === 1) body += P(R('Схемы расположения', {b: true, sz: 28}), {jc: 'center', after: 200, keepNext: true, pageBreak: !!body});
@@ -3297,27 +3581,29 @@ async function buildDocx(o, op, progress){
 
 function wordDialog(){
   const o = cur(); if(!o) return;
-  if(!o.defects.length && !o.beacons.length){ toast('Нет записей для выгрузки', true); return; }
+  if(!o.defects.length && !o.beacons.length && !o.photos.length){ toast('Нет записей для выгрузки', true); return; }
   const nPics = o.defects.reduce((a, d) => a + (d.pics || []).length, 0);
   const nPlans = o.defects.filter(d => d.plan).length + o.beacons.filter(b => b.plan).length, hasInk = o.drawings.some(d => d.inkN);
   const body = h(`<div>
     <p style="margin-top:0">Альбомный A4, Times New Roman 11, строки группируются по полю «Этаж, отметка». В ведомости дефектов графы К.т.с, причина и рекомендации остаются пустыми — для заполнения инженером.</p>
-    <div class="lbl">Ведомости</div>
+    <div class="lbl">Что выгрузить</div>
     <label class="check"><input type="checkbox" data-o="defects" ${o.defects.length ? 'checked' : 'disabled'}> Ведомость дефектов${o.defects.length ? ` (${o.defects.length})` : ' — дефектов нет'}</label>
     <label class="check"><input type="checkbox" data-o="beacons" ${o.beacons.length ? 'checked' : 'disabled'}> Ведомость маяков${o.beacons.length ? ` (${o.beacons.length})` : ' — маяков нет'}</label>
+    <label class="check"><input type="checkbox" data-o="photos" ${o.photos.length ? 'checked' : 'disabled'}> Фотоприложение${o.photos.length ? ` (${plural(o.photos.length, ['точка','точки','точек'])}, ${plural(o.photos.reduce((a, p) => a + (p.pics || []).length, 0), ['снимок','снимка','снимков'])})` : ' — фото нет'}</label>
     <div class="lbl" style="margin-top:12px">Дополнительно</div>
-    <label class="check"><input type="checkbox" data-o="pics" ${nPics ? 'checked' : 'disabled'}> Фото в графе «фото/эскиз»${nPics ? ` (${nPics})` : ' — фото нет'}</label>
+    <label class="check"><input type="checkbox" data-o="pics" ${nPics || o.beacons.some(b => (b.pics || []).length || b.readings.some(r => (r.pics || []).length)) ? 'checked' : 'disabled'}> Фото: у дефектов — в графе «фото/эскиз», у маяков — последний цикл</label>
     <label class="check"><input type="checkbox" data-o="frag" ${o.defects.some(d => d.plan) ? '' : 'disabled'}> Фрагмент чертежа с отметкой (эскиз)</label>
     <label class="check"><input type="checkbox" data-o="maps" ${nPlans ? '' : 'disabled'}> Схемы расположения (отдельные листы)</label>
     <label class="check"><input type="checkbox" data-o="ink" ${hasInk ? '' : 'disabled'}> Полевые записи на эскизах и схемах</label></div>`);
-  openSheet('Ведомости в Word', body, btn('Сформировать', 'primary', async () => {
+  openSheet('Документы в Word', body, btn('Сформировать', 'primary', async () => {
     const op = {}; body.querySelectorAll('[data-o]').forEach(c => { op[c.dataset.o] = c.checked; });
-    if(!op.defects && !op.beacons){ toast('Выберите ведомость', true); return; }
+    if(!op.defects && !op.beacons && !op.photos){ toast('Выберите, что выгрузить', true); return; }
     try {
       busy('Готовлю документ…');
       const u8 = await buildDocx(o, op, m => busy(m));
       busy(null);
-      const what = op.defects && op.beacons ? 'Ведомости' : op.defects ? 'Ведомость_дефектов' : 'Ведомость_маяков';
+      const sel = [op.defects, op.beacons, op.photos].filter(Boolean).length;
+      const what = sel > 1 ? 'Ведомости' : op.defects ? 'Ведомость_дефектов' : op.beacons ? 'Ведомость_маяков' : 'Фотоприложение';
       offerFile(`${what}_${safeName(o.name)}_${today()}.docx`, u8, DOCX_MIME, {replace: true});
     } catch(e) { busy(null); toast('Документ не сформировался: ' + e.message, true); }
   }));
@@ -3400,14 +3686,15 @@ function render(){
   $('#top').innerHTML = `
     <button type="button" class="back-btn" id="backBtn" aria-label="К списку объектов"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Объекты</button>
     <span class="obj-name">${esc(o.name)}</span>
-    <span class="top-count">${tab === 'beacons' ? plural(o.beacons.length, ['маяк','маяка','маяков']) : tab === 'drawings' ? plural(o.drawings.length, ['лист','листа','листов']) : tab === 'defects' ? plural(o.defects.length, ['дефект','дефекта','дефектов']) : ''}</span>`;
+    <span class="top-count">${tab === 'beacons' ? plural(o.beacons.length, ['маяк','маяка','маяков']) : tab === 'drawings' ? plural(o.drawings.length, ['лист','листа','листов']) : tab === 'defects' ? plural(o.defects.length, ['дефект','дефекта','дефектов']) : tab === 'photos' ? plural(o.photos.length, ['точка','точки','точек']) + ' фото' : ''}</span>`;
   $('#backBtn').onclick = goHome;
   document.querySelectorAll('#tabs button').forEach(b => { if(b.dataset.tab === tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   fab.hidden = tab === 'object' || (tab === 'drawings' && !o.drawings.length);
-  fab.innerHTML = '<span aria-hidden="true">+</span> ' + (tab === 'beacons' ? 'Маяк' : tab === 'drawings' ? 'Чертёж' : 'Дефект');
+  fab.innerHTML = '<span aria-hidden="true">+</span> ' + (tab === 'beacons' ? 'Маяк' : tab === 'drawings' ? 'Чертёж' : tab === 'photos' ? 'Фото' : 'Дефект');
   if(tab === 'drawings') renderDrawings(v, o);
   else if(tab === 'defects') renderDefects(v, o);
   else if(tab === 'beacons') renderBeacons(v, o);
+  else if(tab === 'photos') renderPhotos(v, o);
   else renderObject(v, o);
 }
 function renderHome(v){
@@ -3435,8 +3722,8 @@ function renderDrawings(v, o){
   }
   v.innerHTML = `<div class="dgrid">${o.drawings.map(d => {
     const n = planItems(o, d.id).filter(x => x.kind === 'defect').length;
-    const nb = planItems(o, d.id).filter(x => x.kind === 'beacon').length;
-    const meta = [paperName(...pageMM(d)) || '', n ? plural(n, ['дефект','дефекта','дефектов']) : '', nb ? plural(nb, ['маяк','маяка','маяков']) : '', d.inkN ? plural(d.inkN, ['запись','записи','записей']) : ''].filter(Boolean).join(', ') || 'без отметок';
+    const nb = planItems(o, d.id).filter(x => x.kind === 'beacon').length, np = planItems(o, d.id).filter(x => x.kind === 'photo').length;
+    const meta = [paperName(...pageMM(d)) || '', n ? plural(n, ['дефект','дефекта','дефектов']) : '', nb ? plural(nb, ['маяк','маяка','маяков']) : '', np ? np + ' фото' : '', d.inkN ? plural(d.inkN, ['запись','записи','записей']) : ''].filter(Boolean).join(', ') || 'без отметок';
     return `<div class="dcard"><button type="button" class="dcard-open" data-open-dr="${d.id}" aria-label="Открыть ${esc(d.name)}"><img alt="" data-src="${d.thumb || d.id}"></button>
       <div class="dcard-meta"><div><div class="dcard-name">${esc(d.name)}</div><div class="dcard-sub">${esc(meta)}</div></div>
       <button type="button" class="tb" data-act-dr="${d.id}" aria-label="Изменить лист" title="Переименовать или удалить">${IC.more}</button></div></div>`;
@@ -3491,22 +3778,24 @@ function drawDefectList(o){
 }
 function renderBeacons(v, o){
   if(!o.beacons.length){
-    v.innerHTML = `<div class="empty"><h2>Маяков пока нет</h2><p>Заведите маяк при установке, потом добавляйте замеры — график построится сам.</p></div>`;
+    v.innerHTML = `<div class="empty"><h2>Маяков пока нет</h2><p>Заведите маяк при установке, потом добавляйте замеры и фото по циклам — график построится сам.</p></div>`;
     return;
   }
-  const items = o.beacons.slice().sort((a, b) => String(a.num).localeCompare(String(b.num), 'ru', {numeric: true}));
-  v.innerHTML = `<div class="summary">Порог изменения для отметки: ${esc(o.threshold)} мм (меняется в разделе «Сведения»)</div>
+  const items = o.beacons.slice().sort((a, b) => beaconNumKey(a.num) - beaconNumKey(b.num) || String(a.num).localeCompare(String(b.num), 'ru', {numeric: true}));
+  v.innerHTML = `<div class="summary">Порог изменения для отметки: ${esc(o.threshold)} мм (меняется во вкладке «Сведения»)</div>
     <div class="ledger">${items.map(b => {
-      const st = beaconStatus(b, o), pts = series(b);
+      const st = beaconStatus(b, o), two = isTwoAxis(b), pts = series(b);
       const last = b.readings.slice().sort((x, y) => String(y.date).localeCompare(String(x.date)))[0];
+      const lastTxt = !last ? 'замеров нет' : two ? `замер ${fmtDate(last.date)}: X ${esc(last.value)}${last.valueY ? `, Y ${esc(last.valueY)}` : ''} мм` : `замер ${fmtDate(last.date)}, ${esc(last.value || last.state || '')}${last.value ? ' мм' : ''}`;
       return `<div class="beacon" role="button" tabindex="0" data-id="${b.id}">
         <div class="b-title">${esc(b.num)}<small>${esc(b.kind)}</small></div>
-        ${pts.length > 1 ? chartSVG(pts, true) : '<span></span>'}
+        ${pts.length > 1 ? chartSVG(pts, true, two ? series(b, 'y') : null) : '<span></span>'}
         <div class="b-line" style="color:var(--axis);font-style:italic;font-weight:600">${esc(locStr(b) || 'место не указано')}</div>
-        <div class="b-line">${last ? `замер ${fmtDate(last.date)}, ${esc(last.value || last.state || '')}${last.value ? ' мм' : ''}` : 'замеров нет'} <span class="tag ${st.cls}">${esc(st.text)}</span></div>
+        <div class="b-line">${lastTxt} <span class="tag ${st.cls}">${esc(st.text)}</span></div>
       </div>`;
     }).join('')}</div>`;
 }
+
 const ACT_IC = {
   word: svgI('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12l1.2 5 1.8-4 1.8 4 1.2-5"/>'),
   pdf: svgI('<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 9h16M10 9v12" opacity=".55"/><path d="M13 14l2 2 3-4"/>'),
@@ -3538,7 +3827,7 @@ function renderObject(v, o){
   v.append(p);
   const docs = h(`<section class="panel"><h3>Документы</h3><div class="act-list"></div></section>`);
   $('.act-list', docs).append(
-    actRow('word', 'Ведомости в Word', `Дефекты (${o.defects.length}) и маяки (${o.beacons.length}) по форме отчёта, альбомный A4`, wordDialog),
+    actRow('word', 'Ведомости и фотоприложение в Word', `Дефекты (${o.defects.length}), маяки (${o.beacons.length}), фото (${o.photos.length}) — альбомный A4`, wordDialog),
     actRow('pdf', 'Листы чертежей в PDF', `${plural(o.drawings.length, ['лист','листа','листов'])} с отметками и записями, в исходном формате`, () => sheetsPdfDialog(o.drawings)));
   const tabs = h(`<section class="panel"><h3>Таблицы для Excel</h3><div class="act-list"></div></section>`);
   $('.act-list', tabs).append(
@@ -3567,11 +3856,13 @@ document.getElementById('tabs').addEventListener('click', e => {
 document.getElementById('fab').addEventListener('click', () => {
   if(screen === 'home') objectForm();
   else if(tab === 'beacons') beaconForm();
+  else if(tab === 'photos') photoForm();
   else if(tab === 'drawings') pickFiles('application/pdf,image/*', true, importDrawingFiles);
   else defectForm();
 });
 document.getElementById('view').addEventListener('click', e => {
   const oo = e.target.closest('[data-open-obj]'); if(oo){ openObject(oo.dataset.openObj); return; }
+  const pr = e.target.closest('[data-photo]'); if(pr){ photoForm(pr.dataset.photo); return; }
   const ad = e.target.closest('[data-act-dr]');
   if(ad){ const o = cur(), dr = o && o.drawings.find(x => x.id === ad.dataset.actDr); if(dr) drawingActions(dr); return; }
   if(e.target.closest('[data-add-drawing]')){ pickFiles('application/pdf,image/*', true, importDrawingFiles); return; }

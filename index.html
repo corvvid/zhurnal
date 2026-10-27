@@ -326,6 +326,7 @@ body.at-home{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .prow-t .row-no{min-width:auto;padding:0 8px}
 .btn.photo{background:var(--sheet);color:#2c7a4b;border-color:#2c7a4b}
 .ink-acts .btn.photo{flex:0 1 130px;margin-left:6px;padding:10px 12px;white-space:nowrap;font-size:15px}
+.sel-count{align-self:center;font-size:14px;font-weight:600;color:var(--ink-2);padding:0 4px}
 /* диалоги */
 .dlg{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.38);display:flex;align-items:center;justify-content:center;padding:20px}
 .dlg-box{background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 16px 40px -14px rgba(0,0,0,.45)}
@@ -1050,7 +1051,7 @@ function markPrims(m, kind, label, dr, M, alpha, withLabel, color){
   const P = [];
   if(m.t === 'r'){
     const r = rectPx(m, dr);
-    if(kind !== 'photo') P.push({type: 'path', d: hatchPath(r, M.hatch), stroke: color, w: M.thin, alpha});
+    P.push({type: 'path', d: hatchPath(r, M.hatch), stroke: color, w: M.thin, alpha});
     P.push({type: 'path', d: cloudPath(r, M.bump), stroke: color, w: M.lw, alpha});
     if(withLabel && label && m.lab){
       const g = leaderGeom(r, [m.lab[0] * dr.w, m.lab[1] * dr.h], label, M);
@@ -1235,6 +1236,19 @@ function mapStroke(st, fx){
   if(st.e){ const [cx, cy] = fx(st.e[0], st.e[1]); n.e = [f1(cx), f1(cy), st.e[2], st.e[3], st.e[4]]; }
   if(st.k === 'text'){ const [x, y] = fx(st.x, st.y); n.x = f1(x); n.y = f1(y); }
   return n;
+}
+function segCross(a, b, c, d){
+  const cr = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+  return ((cr(c, d, a) > 0) !== (cr(c, d, b) > 0)) && ((cr(a, b, c) > 0) !== (cr(a, b, d) > 0));
+}
+// запись касается рамки: хотя бы одна точка внутри или линия пересекает её край
+function strokeInRect(st, r){
+  if(st.k === 'text'){ const b = textBox(st); return b.x0 <= r.x1 && b.x1 >= r.x0 && b.y0 <= r.y1 && b.y1 >= r.y0; }
+  const pts = strokePts(st);
+  if(pts.some(([x, y]) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1)) return true;
+  const c = [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];
+  for(let i = 1; i < pts.length; i++) for(let k = 0; k < 4; k++) if(segCross(pts[i - 1], pts[i], c[k], c[(k + 1) % 4])) return true;
+  return false;
 }
 function scaleStroke(st, ox, oy, sx, sy){
   const n = mapStroke(st, (x, y) => [ox + (x - ox) * sx, oy + (y - oy) * sy]);
@@ -1639,7 +1653,7 @@ async function openPlan(cfg){
       pencil: 'Карандаш — тонкие пометки.' + touch,
       eraser: u.eraser === 'object' ? 'Ластик стирает запись целиком.' + touch : 'Ластик стирает только то, по чему провели.' + touch,
       text: 'Коснитесь места на листе — откроется окно текста со шрифтом, высотой и цветом.' + touch,
-      select: 'Коснитесь записи, фигуры или текста — их можно переместить, изменить, удалить. Так же выбираются отметки дефектов и маяков.',
+      select: 'Коснитесь записи — или обведите область рамкой, чтобы выбрать сразу несколько. Выбранное можно переместить, изменить, скопировать, удалить. Касанием выбираются и отметки дефектов, маяков, фото.' + (u.stylus ? ' Пальцы двигают лист.' : ' Лист двигается двумя пальцами.'),
       shape: ({line: 'Линия', arrow: 'Стрелка', rect: 'Прямоугольник', ellipse: 'Овал'}[u.shape] || 'Фигура') + ': проведите от начала до конца. Вид фигуры, цвет и толщина — повторным нажатием на инструмент.' + touch
     };
     showHint(m[t] || '', 4500);
@@ -1685,18 +1699,30 @@ async function openPlan(cfg){
   }
   function endSelect(){ phase = 'ink'; sel = null; drawFoot(); toolHint(); schedule(); }
   function endIsel(){ phase = 'ink'; isel = null; closePop(); drawFoot(); toolHint(); schedule(); }
+  const iselStrokes = () => isel ? isel.ids.map(i => strokes[i]).filter(Boolean) : [];
+  function setIsel(ids){ sel = null; isel = {ids}; phase = 'inksel'; closePop(); drawFoot(); schedule(); }
   function selectAt(p){
     const [x, y] = toImg(p), r = 12 / s;
-    for(let i = strokes.length - 1; i >= 0; i--){
-      if(hitStroke(strokes[i], x, y, r)){ sel = null; isel = {i}; phase = 'inksel'; closePop(); drawFoot(); schedule(); return; }
-    }
+    for(let i = strokes.length - 1; i >= 0; i--) if(hitStroke(strokes[i], x, y, r)){ setIsel([i]); return; }
     const hit = hitMark(p);
     if(hit){ isel = null; startSelect(hit); return; }
     if(phase === 'inksel') endIsel();
   }
+  function selectRect(a, b2){
+    const [ax, ay] = toImg(a), [bx, by] = toImg(b2);
+    const r = {x0: Math.min(ax, bx), y0: Math.min(ay, by), x1: Math.max(ax, bx), y1: Math.max(ay, by)};
+    const ids = []; strokes.forEach((st, i) => { if(strokeInRect(st, r)) ids.push(i); });
+    if(ids.length) setIsel(ids);
+    else { if(phase === 'inksel') endIsel(); toast('В рамке нет записей'); }
+  }
+  function unionBox(list){
+    let bb = null;
+    for(const st of list){ const q = strokeBox(st); bb = bb ? {x0: Math.min(bb.x0, q.x0), y0: Math.min(bb.y0, q.y0), x1: Math.max(bb.x1, q.x1), y1: Math.max(bb.y1, q.y1)} : {...q}; }
+    return bb;
+  }
   function iselBox(){
-    const st = isel && strokes[isel.i]; if(!st) return null;
-    const b = strokeBox(st), [x0, y0] = toScr(b.x0, b.y0), [x1, y1] = toScr(b.x1, b.y1);
+    const list = iselStrokes(); if(!list.length) return null;
+    const bb = unionBox(list), [x0, y0] = toScr(bb.x0, bb.y0), [x1, y1] = toScr(bb.x1, bb.y1);
     return {x0: x0 - 8, y0: y0 - 8, x1: x1 + 8, y1: y1 + 8};
   }
   function iselHandle(p){
@@ -1707,14 +1733,14 @@ async function openPlan(cfg){
   }
   function applyIsel(gg, curP){
     if(strokes === gg.before) strokes = gg.before.slice();
-    const o0 = gg.orig, dx = curP[0] - gg.start[0], dy = curP[1] - gg.start[1];
-    if(gg.kind === 'imove'){ strokes[isel.i] = mapStroke(o0, (x, y) => [x + dx, y + dy]); return; }
-    const b = strokeBox(o0), cs = [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]], c0 = cs[gg.corner], opp = cs[(gg.corner + 2) % 4];
+    const dx = curP[0] - gg.start[0], dy = curP[1] - gg.start[1];
+    if(gg.kind === 'imove'){ isel.ids.forEach((i, k) => { strokes[i] = mapStroke(gg.origs[k], (x, y) => [x + dx, y + dy]); }); return; }
+    const bb = unionBox(gg.origs), cs = [[bb.x0, bb.y0], [bb.x1, bb.y0], [bb.x1, bb.y1], [bb.x0, bb.y1]], c0 = cs[gg.corner], opp = cs[(gg.corner + 2) % 4];
     const w0 = (c0[0] - opp[0]) || 1e-6, h0 = (c0[1] - opp[1]) || 1e-6;
     let sx = (c0[0] + dx - opp[0]) / w0, sy = (c0[1] + dy - opp[1]) / h0;
-    if(o0.k === 'text') sx = sy = Math.max(sx, sy);
+    if(gg.origs.some(st => st.k === 'text')) sx = sy = Math.max(sx, sy);
     sx = Math.max(0.05, sx); sy = Math.max(0.05, sy);
-    strokes[isel.i] = scaleStroke(o0, opp[0], opp[1], sx, sy);
+    isel.ids.forEach((i, k) => { strokes[i] = scaleStroke(gg.origs[k], opp[0], opp[1], sx, sy); });
   }
   function shapeStroke(a, b){
     if(Math.hypot((b[0] - a[0]) * s, (b[1] - a[1]) * s) < 6) return null;
@@ -1733,13 +1759,14 @@ async function openPlan(cfg){
   const dirBtns = () => `<div class="dir-btns" role="group" aria-label="Направление выноски">${[['nw', '↖'], ['ne', '↗'], ['sw', '↙'], ['se', '↘']].map(([k, t]) => `<button type="button" class="tb" data-dir="${k}" aria-label="Выноска ${t}">${t}</button>`).join('')}</div>`;
   function drawFoot(){
     if(phase === 'inksel'){
-      const st = strokes[isel.i];
-      foot.innerHTML = `<div class="mk-bar"><button type="button" class="tb" data-pop="iscolor" aria-label="Цвет" title="Цвет"><span class="swatch" style="background:${st ? st.c : '#000'}"></span></button>
-        ${st && st.k !== 'text' ? '<button type="button" class="tb tb-txt" data-pop="iswidth" aria-label="Толщина" title="Толщина">≡</button>' : ''}
+      const list = iselStrokes(), n = list.length, st = n === 1 ? list[0] : null;
+      foot.innerHTML = `<div class="mk-bar">${n > 1 ? `<span class="sel-count">Выбрано: ${n}</span>` : ''}<button type="button" class="tb" data-pop="iscolor" aria-label="Цвет" title="Цвет"><span class="swatch" style="background:${list[0] ? list[0].c : '#000'}"></span></button>
+        ${list.some(x => x.k !== 'text') ? '<button type="button" class="tb tb-txt" data-pop="iswidth" aria-label="Толщина" title="Толщина">≡</button>' : ''}
         ${st && st.k === 'text' ? '<button type="button" class="btn" data-is-edit>Изменить текст</button>' : ''}
         <button type="button" class="btn" data-is-dup>Копия</button><button type="button" class="btn danger" data-is-del>Удалить</button>
         <button type="button" class="btn primary" data-is-done>Готово</button></div>`;
-      showHint('Перетащите запись, чтобы переместить; за угол — изменить размер. Коснитесь другой записи, чтобы выбрать её.');
+      showHint(n > 1 ? 'Перетащите рамку — переместится всё выбранное; за угол — изменить размер. Обведите другую область или коснитесь записи, чтобы выбрать заново.'
+        : 'Перетащите запись, чтобы переместить; за угол — изменить размер. Коснитесь другой записи или обведите область рамкой.');
       return;
     }
     if(phase === 'ink'){
@@ -1790,10 +1817,10 @@ async function openPlan(cfg){
     if(kind === 'sheets'){
       pop.innerHTML = `<div class="pop-title">Перейти на лист</div>${o.drawings.map(d => `<button type="button" class="menu-item" data-sheet="${d.id}"${d.id === dr.id ? ' disabled' : ''}>${esc(d.name)}</button>`).join('')}`;
     } else if(kind === 'iscolor'){
-      const st = strokes[isel.i];
-      pop.innerHTML = `<div class="pop-title">Цвет записи</div><div class="pop-row">${INK_COLORS.map(c => `<button type="button" class="sw${st && st.c === c ? ' on' : ''}" data-isc="${c}" style="background:${c}" aria-label="Цвет ${c}"></button>`).join('')}</div>`;
+      const st = iselStrokes()[0];
+      pop.innerHTML = `<div class="pop-title">Цвет ${isel.ids.length > 1 ? 'выбранных записей' : 'записи'}</div><div class="pop-row">${INK_COLORS.map(c => `<button type="button" class="sw${st && st.c === c ? ' on' : ''}" data-isc="${c}" style="background:${c}" aria-label="Цвет ${c}"></button>`).join('')}</div>`;
     } else if(kind === 'iswidth'){
-      const st = strokes[isel.i], ws = (INK_TOOLS[st && st.t] || INK_TOOLS.pen).widths;
+      const st = iselStrokes().find(x => x.k !== 'text'), ws = (INK_TOOLS[st && st.t] || INK_TOOLS.pen).widths;
       pop.innerHTML = `<div class="pop-title">Толщина линии</div><div class="pop-row">${ws.map((w, i) => `<button type="button" class="wd" data-isw="${i}" aria-label="Толщина ${i + 1}"><i style="width:22px;height:${Math.max(2, Math.min(14, w * 1.2))}px;background:#14202a"></i></button>`).join('')}</div>
         <p class="hint" style="margin:10px 0 0">Толщина считается для текущего масштаба листа.</p>`;
     } else if(kind === 'mcolor'){
@@ -1836,8 +1863,8 @@ async function openPlan(cfg){
     if(!pop || !pop.contains(e.target)) return;
     const mc = e.target.closest('[data-mc]'); if(mc){ setMarkColor(mc.dataset.mc); closePop(); return; }
     const shp = e.target.closest('[data-shape]'); if(shp){ u.shape = shp.dataset.shape; save(); closePop(); toolHint(); return; }
-    const isc = e.target.closest('[data-isc]'); if(isc){ const st = strokes[isel.i]; if(st) commitInk(strokes.map((x, j) => j === isel.i ? {...x, c: isc.dataset.isc} : x)); closePop(); drawFoot(); return; }
-    const isw = e.target.closest('[data-isw]'); if(isw){ const st = strokes[isel.i]; if(st){ const ws = (INK_TOOLS[st.t] || INK_TOOLS.pen).widths; commitInk(strokes.map((x, j) => j === isel.i ? {...x, w: Math.round(ws[+isw.dataset.isw] / s * 100) / 100} : x)); } closePop(); return; }
+    const isc = e.target.closest('[data-isc]'); if(isc){ const set = new Set(isel.ids); commitInk(strokes.map((x, j) => set.has(j) ? {...x, c: isc.dataset.isc} : x)); closePop(); drawFoot(); return; }
+    const isw = e.target.closest('[data-isw]'); if(isw){ const set = new Set(isel.ids), k = +isw.dataset.isw; commitInk(strokes.map((x, j) => set.has(j) && x.k !== 'text' ? {...x, w: Math.round((INK_TOOLS[x.t] || INK_TOOLS.pen).widths[Math.min(k, (INK_TOOLS[x.t] || INK_TOOLS.pen).widths.length - 1)] / s * 100) / 100} : x)); closePop(); return; }
     const ms = e.target.closest('[data-msize]'); if(ms){ dr.textMM = +ms.dataset.msize || null; save(); M = sheetMetrics(dr); closePop(); render(); schedule(); return; }
     const er = e.target.closest('[data-er]'); if(er){ u.eraser = er.dataset.er; save(); closePop(); toolHint(); return; }
     const w = e.target.closest('[data-w]'); if(w){ u.width[u.tool] = +w.dataset.w; save(); closePop(); drawFoot(); return; }
@@ -1876,10 +1903,14 @@ async function openPlan(cfg){
     const p = e.target.closest('[data-pop]'); if(p){ openPop(p.dataset.pop); return; }
     const dir = e.target.closest('[data-dir]'); if(dir){ setDir(dir.dataset.dir); return; }
     if(e.target.closest('[data-is-done]')){ endIsel(); return; }
-    if(e.target.closest('[data-is-del]')){ const i = isel.i; endIsel(); commitInk(strokes.filter((_, j) => j !== i)); return; }
-    if(e.target.closest('[data-is-dup]')){ const st = strokes[isel.i]; if(st){ commitInk([...strokes, mapStroke(st, (x, y) => [x + 24 / s, y + 24 / s])]); isel = {i: strokes.length - 1}; drawFoot(); schedule(); } return; }
+    if(e.target.closest('[data-is-del]')){ const set = new Set(isel.ids); endIsel(); commitInk(strokes.filter((_, j) => !set.has(j))); return; }
+    if(e.target.closest('[data-is-dup]')){
+      const list = iselStrokes(); if(!list.length) return;
+      const n0 = strokes.length; commitInk([...strokes, ...list.map(st => mapStroke(st, (x, y) => [x + 24 / s, y + 24 / s]))]); setIsel(list.map((_, k) => n0 + k)); return;
+    }
     if(e.target.closest('[data-is-edit]')){
-      const i = isel.i, st = strokes[i]; if(!st) return;
+      if(isel.ids.length !== 1) return;
+      const i = isel.ids[0], st = strokes[i]; if(!st) return;
       const props = await textEditor({txt: st.txt, ff: st.ff || 'sans', mm: st.v ? Math.round(st.fs / M.px * 10) / 10 : 3.5, c: st.c, b: !!st.b, i: st.v ? !!st.i : false, u: !!st.u});
       if(props){ const fs = props.mm * M.px; commitInk(strokes.map((x, j) => j === i ? {...x, v: 2, txt: props.txt, ff: props.ff, fs, c: props.c, b: props.b, i: props.i, u: props.u, y: st.v ? st.y : st.y + fs * 0.5} : x)); }
       return;
@@ -1982,6 +2013,11 @@ async function openPlan(cfg){
         for(const [x, y] of [[B.x0, B.y0], [B.x1, B.y0], [B.x1, B.y1], [B.x0, B.y1]]){ ctx.fillStyle = '#fff'; ctx.fillRect(x - 7, y - 7, 14, 14); ctx.strokeRect(x - 7, y - 7, 14, 14); }
         ctx.restore();
       }
+    }
+    if(g && g.kind === 'isrect' && g.b){
+      const x0 = Math.min(g.x0, g.b.x), y0 = Math.min(g.y0, g.b.y), w = Math.abs(g.b.x - g.x0), hh = Math.abs(g.b.y - g.y0);
+      ctx.save(); ctx.fillStyle = 'rgba(29,79,122,.08)'; ctx.fillRect(x0, y0, w, hh);
+      ctx.strokeStyle = COL.axis; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.strokeRect(x0, y0, w, hh); ctx.restore();
     }
     if(g && g.kind === 'erase' && g.cur){
       ctx.beginPath(); ctx.arc(g.cur.x, g.cur.y, 12, 0, Math.PI * 2);
@@ -2125,7 +2161,7 @@ async function openPlan(cfg){
     }
     if(phase === 'inksel' && !touchNav){
       const hh = iselHandle(p);
-      if(hh !== null) return {...base, kind: hh === 'move' ? 'imove' : 'iscale', corner: hh, before: strokes, orig: strokes[isel.i], start: toImg(p)};
+      if(hh !== null) return {...base, kind: hh === 'move' ? 'imove' : 'iscale', corner: hh, before: strokes, origs: isel.ids.map(i => strokes[i]), start: toImg(p)};
       return {...base, kind: 'itap', tx, ty};
     }
     if(u.tool === 'select' && !touchNav) return {...base, kind: 'itap', tx, ty};
@@ -2139,7 +2175,9 @@ async function openPlan(cfg){
   }
   function moveG(e, p){
     if(Math.hypot(p.x - g.x0, p.y - g.y0) > 6) g.moved = true;
-    if((g.kind === 'tap' || g.kind === 'itap') && g.moved) g.kind = 'pan';
+    if(g.kind === 'tap' && g.moved) g.kind = 'pan';
+    if(g.kind === 'itap' && g.moved) g.kind = 'isrect';
+    if(g.kind === 'isrect'){ g.b = p; schedule(); return; }
     if(g.kind === 'imove' || g.kind === 'iscale'){ if(g.moved){ applyIsel(g, toImg(p)); schedule(); } return; }
     if(g.kind === 'shp'){ g.b = toImg(p); schedule(); return; }
     if(g.kind === 'pan'){ if(g.moved){ tx = g.tx + p.x - g.x0; ty = g.ty + p.y - g.y0; schedule(); } return; }
@@ -2185,6 +2223,7 @@ async function openPlan(cfg){
       return;
     }
     if(gg.kind === 'tap'){ tapAdjust(p); return; }
+    if(gg.kind === 'isrect'){ selectRect({x: gg.x0, y: gg.y0}, p); schedule(); return; }
     if(gg.kind === 'itap'){ selectAt(p); return; }
     if(gg.kind === 'imove' || gg.kind === 'iscale'){ if(gg.moved && strokes !== gg.before){ undoS.push(gg.before); redoS = []; persist(); } drawFoot(); schedule(); return; }
     if(gg.kind === 'shp'){ const st = shapeStroke(gg.a, toImg(p)); if(st) commitInk([...strokes, roundSt(st)]); else schedule(); return; }

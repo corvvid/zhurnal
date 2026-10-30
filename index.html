@@ -349,6 +349,23 @@ body.at-home{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .gost-cause b{font-weight:600}
 .gost-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .gp-item .tag{margin-left:8px}
+/* серия фото камерой */
+.cam{position:fixed;inset:0;z-index:80;background:#000;color:#fff;display:flex;flex-direction:column;touch-action:none;-webkit-user-select:none;user-select:none}
+.cam-v{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}
+.cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.cam-flash.on{animation:camflash .28s ease-out}
+@keyframes camflash{from{opacity:.7}to{opacity:0}}
+.cam-top{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 0;display:flex;justify-content:center;pointer-events:none}
+.cam-count{background:rgba(0,0,0,.6);padding:7px 14px;border-radius:16px;font-size:15px;font-weight:600;text-align:center;max-width:100%}
+.cam-bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 14px)}
+.cam-thumbs{display:flex;gap:6px;align-items:center;min-height:60px;overflow:hidden}
+.cam-th{height:60px;width:auto;border-radius:6px;border:1px solid rgba(255,255,255,.45);flex:none}
+.cam-shot{width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:#fff;box-shadow:inset 0 0 0 3px #000;cursor:pointer;padding:0}
+.cam-shot:active{transform:scale(.93)}
+.cam-side{display:flex;gap:10px;justify-content:flex-end;align-items:center}
+.cam-btn{min-height:48px;min-width:48px;padding:0 16px;border-radius:24px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
+.cam-done{background:#fff;color:#000;border-color:#fff}
+button.pic.add{font:inherit;font-weight:600;font-size:14.5px;color:var(--ink-2)}
 /* диалоги */
 .dlg{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.38);display:flex;align-items:center;justify-content:center;padding:20px}
 .dlg-box{background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 16px 40px -14px rgba(0,0,0,.45)}
@@ -2897,10 +2914,152 @@ function mountPlanField(box, f, o, dirty, self){
 }
 
 /* ===================== Фото ===================== */
+/* ===================== Добавление листа: файл или пустой лист ===================== */
+function addDrawingDialog(){
+  const o = cur(); if(!o) return;
+  const st = {k: 3, land: true, grid: 0, frame: false};
+  const defName = `Эскиз ${o.drawings.filter(d => d.blank).length + 1}`;
+  const body = h(`<div>
+    <p class="group-title">Из файла</p>
+    <p class="hint" style="margin:0 0 10px">PDF или фото листов. Из многолистового PDF можно выбрать нужные листы.</p>
+    <button type="button" class="btn" data-from-file>Выбрать файл…</button>
+    <div class="group" style="margin-top:18px"><p class="group-title">Пустой лист</p>
+      <div class="field"><div class="lbl">Формат</div><div class="seg" data-bk>${[4, 3, 2, 1, 0].map(k => `<button type="button" data-v="${k}">А${k}</button>`).join('')}</div></div>
+      <div class="field"><div class="lbl">Ориентация</div><div class="seg" data-bo><button type="button" data-v="1">Альбомная</button><button type="button" data-v="0">Книжная</button></div></div>
+      <div class="field"><div class="lbl">Сетка</div><div class="seg" data-bg><button type="button" data-v="0">Нет</button><button type="button" data-v="5">5 мм</button><button type="button" data-v="10">10 мм</button></div></div>
+      <label class="check"><input type="checkbox" data-bf> Рамка: поля 20 мм слева, 5 мм с остальных сторон</label>
+      <div class="field"><label for="b-nm">Название листа</label><input id="b-nm" class="inp" data-bn value="${esc(defName)}" autocomplete="off"></div>
+      <p class="hint" data-bsz></p>
+    </div></div>`);
+  const sz = () => { const [sh, lo] = A_MM[st.k]; return st.land ? [lo, sh] : [sh, lo]; };
+  function draw(){
+    const mark = (sel, v) => body.querySelectorAll(sel + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v)));
+    mark('[data-bk]', st.k); mark('[data-bo]', st.land ? 1 : 0); mark('[data-bg]', st.grid);
+    const [w, hh] = sz(); $('[data-bsz]', body).textContent = `Лист А${st.k}: ${w} × ${hh} мм. Выгрузка в PDF — в том же формате.`;
+  }
+  body.addEventListener('click', e => {
+    const b = e.target.closest('.seg button'); if(!b) return;
+    const g = b.parentElement;
+    if(g.matches('[data-bk]')) st.k = +b.dataset.v;
+    else if(g.matches('[data-bo]')) st.land = b.dataset.v === '1';
+    else if(g.matches('[data-bg]')) st.grid = +b.dataset.v;
+    draw();
+  });
+  $('[data-bf]', body).onchange = e => { st.frame = e.target.checked; };
+  $('[data-from-file]', body).onclick = () => { pickFiles('application/pdf,image/*', true, importDrawingFiles); closeTop(false); };
+  draw();
+  openSheet('Добавить лист', body, [btn('Создать пустой лист', 'primary', async () => {
+    const name = $('[data-bn]', body).value.trim() || defName;
+    closeTop(false);
+    busy('Создаю лист…');
+    try {
+      const dr = await createBlankSheet(o, st, name);
+      busy(null); render(); toast(`Добавлен лист А${st.k}`);
+      if(dr) openPlan({drawing: dr, mode: 'work'});
+    } catch(e) { busy(null); toast('Лист не создан: ' + e.message, true); }
+  })]);
+}
+async function createBlankSheet(o, opt, name){
+  const [sh, lo] = A_MM[opt.k], wmm = opt.land ? lo : sh, hmm = opt.land ? sh : lo;
+  const PT = 72 / 25.4, pw = Math.round(wmm * PT * 100) / 100, ph = Math.round(hmm * PT * 100) / 100;
+  const ar = opt.frame ? {x0: 20, y0: 5, x1: wmm - 5, y1: hmm - 5} : {x0: 0, y0: 0, x1: wmm, y1: hmm};
+  const lines = []; // в мм от левого верхнего угла
+  if(opt.grid){
+    const g = opt.grid, nx = Math.floor((ar.x1 - ar.x0) / g - 1e-6), ny = Math.floor((ar.y1 - ar.y0) / g - 1e-6);
+    for(let i = 1; i <= nx; i++) lines.push({x0: ar.x0 + i * g, y0: ar.y0, x1: ar.x0 + i * g, y1: ar.y1, major: (i * g) % 50 === 0});
+    for(let i = 1; i <= ny; i++) lines.push({x0: ar.x0, y0: ar.y0 + i * g, x1: ar.x1, y1: ar.y0 + i * g, major: (i * g) % 50 === 0});
+  }
+  const MINOR = [211, 222, 230], MAJOR = [160, 184, 202];
+  // изображение листа для экрана
+  const k = Math.min(4200 / Math.max(pw, ph), Math.sqrt(12e6 / (pw * ph))), W = Math.floor(pw * k), H = Math.floor(ph * k), px = k * PT;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  for(const major of [false, true]){
+    const col = major ? MAJOR : MINOR; x.strokeStyle = `rgb(${col.join(',')})`; x.lineWidth = Math.max(1, (major ? 0.3 : 0.18) * px);
+    x.beginPath();
+    for(const ln of lines) if(ln.major === major){ x.moveTo(ln.x0 * px, ln.y0 * px); x.lineTo(ln.x1 * px, ln.y1 * px); }
+    x.stroke();
+  }
+  if(opt.frame){ x.strokeStyle = '#000'; x.lineWidth = Math.max(1.5, 0.5 * px); x.strokeRect(ar.x0 * px, ar.y0 * px, (ar.x1 - ar.x0) * px, (ar.y1 - ar.y0) * px); }
+  // исходный PDF нужного формата — для выгрузки листа в точном размере и вектором
+  let extra = {fmt: 'A' + opt.k, blank: true};
+  try {
+    if(!window.PDFLib) await loadScript(BUILD.pdflib);
+    const L = window.PDFLib, doc = await L.PDFDocument.create(), pg = doc.addPage([pw, ph]), P = v => v * PT, rgb = a => L.rgb(a[0] / 255, a[1] / 255, a[2] / 255);
+    for(const ln of lines) pg.drawLine({start: {x: P(ln.x0), y: ph - P(ln.y0)}, end: {x: P(ln.x1), y: ph - P(ln.y1)}, thickness: P(ln.major ? 0.3 : 0.18), color: rgb(ln.major ? MAJOR : MINOR)});
+    if(opt.frame) pg.drawRectangle({x: P(ar.x0), y: ph - P(ar.y1), width: P(ar.x1 - ar.x0), height: P(ar.y1 - ar.y0), borderWidth: P(0.5), borderColor: L.rgb(0, 0, 0)});
+    doc.setTitle(name); doc.setCreator('Полевой журнал обследования');
+    const srcId = uid(); await MEDIA.put(srcId, new Blob([await doc.save()], {type: 'application/pdf'}));
+    extra = {src: srcId, page: 1, pw, ph, blank: true};
+  } catch(e) { /* без исходного PDF лист всё равно выгрузится в формате А${opt.k} */ }
+  await addDrawing(o, name, c, W, H, extra);
+  c.width = c.height = 0;
+  return o.drawings[o.drawings.length - 1];
+}
+
+/* ===================== Серия фото камерой ===================== */
+function cameraSeries(onShot, onDone){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast('Камера в приложении недоступна в этом браузере — используйте «+ Фото»', true); return; }
+  let stream = null, facing = 'environment', queue = Promise.resolve(), shot = 0, saved = 0, closed = false;
+  const ov = h(`<div class="cam" role="dialog" aria-modal="true" aria-label="Серия фото">
+    <video class="cam-v" playsinline muted autoplay></video>
+    <div class="cam-flash"></div>
+    <div class="cam-top"><span class="cam-count" data-cc>Наведите камеру и нажимайте кнопку — каждый снимок сразу добавляется</span></div>
+    <div class="cam-bar">
+      <div class="cam-thumbs" data-th></div>
+      <button type="button" class="cam-shot" data-shot aria-label="Снять"></button>
+      <div class="cam-side"><button type="button" class="cam-btn" data-flip aria-label="Сменить камеру" title="Сменить камеру">⟲</button><button type="button" class="cam-btn cam-done" data-done>Готово</button></div>
+    </div></div>`);
+  document.body.append(ov);
+  const v = $('video', ov), cc = $('[data-cc]', ov), th = $('[data-th]', ov), flash = $('.cam-flash', ov);
+  const stop = () => { if(stream) stream.getTracks().forEach(t => t.stop()); stream = null; };
+  async function start(){
+    stop();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: facing}, width: {ideal: 4032}, height: {ideal: 3024}}});
+      if(closed){ stop(); return; }
+      v.srcObject = stream; await v.play().catch(() => {});
+    } catch(e) {
+      close();
+      toast(FRAMED ? 'Внутри окна Claude камера недоступна — откройте журнал с экрана «Домой»' : 'Нет доступа к камере. Разрешите его в Настройки → Safari → Камера или снимайте через «+ Фото»', true);
+    }
+  }
+  function take(){
+    if(closed || !stream || !v.videoWidth) return;
+    const s = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight)); // как и «+ Фото», снимки хранятся до 1600 px
+    const c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    shot++; cc.textContent = `Снято: ${shot}`;
+    flash.classList.remove('on'); void flash.offsetWidth; flash.classList.add('on');
+    const t = document.createElement('canvas'), ts = 112 / Math.max(c.width, c.height);
+    t.width = Math.round(c.width * ts); t.height = Math.round(c.height * ts); t.className = 'cam-th';
+    t.getContext('2d').drawImage(c, 0, 0, t.width, t.height); th.prepend(t); while(th.children.length > 3) th.lastChild.remove();
+    queue = queue.then(() => new Promise(res => c.toBlob(res, 'image/jpeg', 0.9)))
+      .then(b => { c.width = c.height = 0; if(!b) throw new Error('кадр не получен'); return onShot(new File([b], `IMG_${Date.now()}.jpg`, {type: 'image/jpeg'})); })
+      .then(() => { saved++; }, e => toast('Снимок не сохранился: ' + e.message, true));
+  }
+  async function close(){
+    if(closed) return; closed = true; stop();
+    document.removeEventListener('keydown', onKey, true); document.removeEventListener('visibilitychange', onVis);
+    if(shot > saved) busy('Сохраняю снимки…');
+    await queue; busy(null); ov.remove(); onDone(saved);
+  }
+  const onKey = e => {
+    if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); }
+    else if((e.key === ' ' || e.key === 'Enter') && !e.repeat){ e.preventDefault(); e.stopPropagation(); take(); }
+  };
+  const onVis = () => { if(document.visibilityState === 'visible' && !closed && (!stream || stream.getVideoTracks().every(t => t.readyState === 'ended'))) start(); };
+  document.addEventListener('keydown', onKey, true); document.addEventListener('visibilitychange', onVis);
+  $('[data-shot]', ov).onclick = take;
+  $('[data-done]', ov).onclick = close;
+  $('[data-flip]', ov).onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; start(); };
+  start();
+}
 function mountPics(box, f, ref){
   function draw(){
     box.innerHTML = `<div class="pics">${f.pics.map((p, i) => `<button type="button" class="pic" data-pic="${p.id}" aria-label="Фото ${i + 1}"><img alt="" data-src="${p.id}"></button>`).join('')}
-      <label class="pic add"><input type="file" accept="image/*" multiple hidden><span>+ Фото</span></label></div>`;
+      <label class="pic add"><input type="file" accept="image/*" multiple hidden><span>+ Фото</span></label>
+      <button type="button" class="pic add" data-series><span>Серия<br>камерой</span></button></div>`;
     box.querySelectorAll('img[data-src]').forEach(im => mediaURL(im.dataset.src).then(u => { if(u) im.src = u; }).catch(() => {}));
   }
   box.addEventListener('change', async e => {
@@ -2917,6 +3076,11 @@ function mountPics(box, f, ref){
     busy(null); if(ref.node) ref.node.dirty = true; draw();
   });
   box.addEventListener('click', e => {
+    if(e.target.closest('[data-series]')){
+      cameraSeries(async file => { const r = await savePhoto(file); f.pics.push(r); ref.added.push(r.id); },
+        n => { if(n){ if(ref.node) ref.node.dirty = true; toast(`Добавлено ${n} фото`); } draw(); });
+      return;
+    }
     const b = e.target.closest('[data-pic]'); if(!b) return;
     const id = b.dataset.pic;
     photoViewer(id, `Фото ${f.pics.findIndex(p => p.id === id) + 1}`, () => { f.pics = f.pics.filter(p => p.id !== id); if(ref.node) ref.node.dirty = true; draw(); });
@@ -3923,8 +4087,8 @@ function renderHome(v){
 
 function renderDrawings(v, o){
   if(!o.drawings.length){
-    v.innerHTML = `<div class="empty"><h2>Загрузите чертежи</h2><p>PDF или фото листов. Потом откройте лист и работайте прямо на нём: записи пером, размеры, отметки дефектов.</p>
-      <button type="button" class="btn primary" data-add-drawing>Загрузить чертёж</button></div>`;
+    v.innerHTML = `<div class="empty"><h2>Добавьте чертежи</h2><p>PDF или фото листов, либо пустой лист от А4 до А0 для эскиза. Потом откройте лист и работайте прямо на нём: записи пером, размеры, отметки дефектов.</p>
+      <button type="button" class="btn primary" data-add-drawing>Добавить лист</button></div>`;
     return;
   }
   v.innerHTML = `<div class="dgrid">${o.drawings.map(d => {
@@ -4064,7 +4228,7 @@ document.getElementById('fab').addEventListener('click', () => {
   if(screen === 'home') objectForm();
   else if(tab === 'beacons') beaconForm();
   else if(tab === 'photos') photoForm();
-  else if(tab === 'drawings') pickFiles('application/pdf,image/*', true, importDrawingFiles);
+  else if(tab === 'drawings') addDrawingDialog();
   else defectForm();
 });
 document.getElementById('view').addEventListener('click', e => {
@@ -4072,7 +4236,7 @@ document.getElementById('view').addEventListener('click', e => {
   const pr = e.target.closest('[data-photo]'); if(pr){ photoForm(pr.dataset.photo); return; }
   const ad = e.target.closest('[data-act-dr]');
   if(ad){ const o = cur(), dr = o && o.drawings.find(x => x.id === ad.dataset.actDr); if(dr) drawingActions(dr); return; }
-  if(e.target.closest('[data-add-drawing]')){ pickFiles('application/pdf,image/*', true, importDrawingFiles); return; }
+  if(e.target.closest('[data-add-drawing]')){ addDrawingDialog(); return; }
   const od = e.target.closest('[data-open-dr]');
   if(od){ const o = cur(), dr = o && o.drawings.find(x => x.id === od.dataset.openDr); if(dr) openPlan({drawing: dr, mode: 'work'}); return; }
   const r = e.target.closest('.row[data-id]'); if(r){ defectForm(r.dataset.id); return; }

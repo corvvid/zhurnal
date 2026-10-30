@@ -351,13 +351,15 @@ body.at-home{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .gp-item .tag{margin-left:8px}
 /* серия фото камерой */
 .cam{position:fixed;inset:0;z-index:80;background:#000;color:#fff;display:flex;flex-direction:column;touch-action:none;-webkit-user-select:none;user-select:none}
-.cam-v{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}
+.cam-view{flex:1;min-height:0;position:relative;overflow:hidden;background:#000}
+.cam-pv{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cam-v{position:absolute;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none}
 .cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
 .cam-flash.on{animation:camflash .28s ease-out}
 @keyframes camflash{from{opacity:.7}to{opacity:0}}
 .cam-top{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 0;display:flex;justify-content:center;pointer-events:none}
 .cam-count{background:rgba(0,0,0,.6);padding:7px 14px;border-radius:16px;font-size:15px;font-weight:600;text-align:center;max-width:100%}
-.cam-bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 14px)}
+.cam-bar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 14px)}
 .cam-thumbs{display:flex;gap:6px;align-items:center;min-height:60px;overflow:hidden}
 .cam-th{height:60px;width:auto;border-radius:6px;border:1px solid rgba(255,255,255,.45);flex:none}
 .cam-shot{width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:#fff;box-shadow:inset 0 0 0 3px #000;cursor:pointer;padding:0}
@@ -365,6 +367,7 @@ body.at-home{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .cam-side{display:flex;gap:10px;justify-content:flex-end;align-items:center}
 .cam-btn{min-height:48px;min-width:48px;padding:0 16px;border-radius:24px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
 .cam-done{background:#fff;color:#000;border-color:#fff}
+@media (max-width:520px){.cam-bar{grid-template-columns:minmax(0,1fr) auto auto;gap:10px;padding-left:12px;padding-right:12px}.cam-side{gap:8px}.cam-btn{padding:0 13px}}
 button.pic.add{font:inherit;font-weight:600;font-size:14.5px;color:var(--ink-2)}
 /* диалоги */
 .dlg{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.38);display:flex;align-items:center;justify-content:center;padding:20px}
@@ -3002,7 +3005,7 @@ function cameraSeries(onShot, onDone){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast('Камера в приложении недоступна в этом браузере — используйте «+ Фото»', true); return; }
   let stream = null, facing = 'environment', queue = Promise.resolve(), shot = 0, saved = 0, closed = false;
   const ov = h(`<div class="cam" role="dialog" aria-modal="true" aria-label="Серия фото">
-    <video class="cam-v" playsinline muted autoplay></video>
+    <div class="cam-view"><canvas class="cam-pv"></canvas><video class="cam-v" playsinline webkit-playsinline muted autoplay></video></div>
     <div class="cam-flash"></div>
     <div class="cam-top"><span class="cam-count" data-cc>Наведите камеру и нажимайте кнопку — каждый снимок сразу добавляется</span></div>
     <div class="cam-bar">
@@ -3011,21 +3014,40 @@ function cameraSeries(onShot, onDone){
       <div class="cam-side"><button type="button" class="cam-btn" data-flip aria-label="Сменить камеру" title="Сменить камеру">⟲</button><button type="button" class="cam-btn cam-done" data-done>Готово</button></div>
     </div></div>`);
   document.body.append(ov);
-  const v = $('video', ov), cc = $('[data-cc]', ov), th = $('[data-th]', ov), flash = $('.cam-flash', ov);
+  const v = $('video', ov), cc = $('[data-cc]', ov), th = $('[data-th]', ov), flash = $('.cam-flash', ov), pv = $('.cam-pv', ov), pvx = pv.getContext('2d');
   const stop = () => { if(stream) stream.getTracks().forEach(t => t.stop()); stream = null; };
+  v.muted = true; v.defaultMuted = true; v.playsInline = true;
+  // Просмотр рисуется на холсте из видеопотока: на iPhone и iPad сам <video> с камерой в приложении с экрана «Домой» может оставаться чёрным
+  let raf = 0, waitTap = false;
+  function fitPv(){ const r = Math.min(2, window.devicePixelRatio || 1); pv.width = Math.max(1, Math.round(pv.clientWidth * r)); pv.height = Math.max(1, Math.round(pv.clientHeight * r)); }
+  function paint(){
+    raf = requestAnimationFrame(paint);
+    if(!v.videoWidth || v.readyState < 2) return;
+    if(pv.width !== Math.round(pv.clientWidth * Math.min(2, window.devicePixelRatio || 1))) fitPv();
+    const k = Math.min(pv.width / v.videoWidth, pv.height / v.videoHeight), w = v.videoWidth * k, hh = v.videoHeight * k;
+    pvx.fillStyle = '#000'; pvx.fillRect(0, 0, pv.width, pv.height);
+    pvx.drawImage(v, (pv.width - w) / 2, (pv.height - hh) / 2, w, hh);
+  }
+  const playV = () => v.play().then(() => { if(waitTap){ waitTap = false; cc.textContent = shot ? `Снято: ${shot}` : 'Наведите камеру и нажимайте кнопку — каждый снимок сразу добавляется'; } }).catch(() => {
+    waitTap = true; cc.textContent = 'Коснитесь экрана, чтобы включить камеру';
+  });
+  pv.addEventListener('click', () => { if(v.paused) playV(); });
   async function start(){
     stop();
     try {
-      stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: facing}, width: {ideal: 4032}, height: {ideal: 3024}}});
+      stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: facing}, width: {ideal: 1920}, height: {ideal: 1440}}});
       if(closed){ stop(); return; }
-      v.srcObject = stream; await v.play().catch(() => {});
+      v.srcObject = stream; await playV();
+      if(!raf){ fitPv(); paint(); }
     } catch(e) {
       close();
       toast(FRAMED ? 'Внутри окна Claude камера недоступна — откройте журнал с экрана «Домой»' : 'Нет доступа к камере. Разрешите его в Настройки → Safari → Камера или снимайте через «+ Фото»', true);
     }
   }
   function take(){
-    if(closed || !stream || !v.videoWidth) return;
+    if(closed || !stream) return;
+    if(v.paused) playV();
+    if(!v.videoWidth) return;
     const s = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight)); // как и «+ Фото», снимки хранятся до 1600 px
     const c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s);
     c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
@@ -3039,7 +3061,7 @@ function cameraSeries(onShot, onDone){
       .then(() => { saved++; }, e => toast('Снимок не сохранился: ' + e.message, true));
   }
   async function close(){
-    if(closed) return; closed = true; stop();
+    if(closed) return; closed = true; stop(); cancelAnimationFrame(raf); raf = 0; v.srcObject = null;
     document.removeEventListener('keydown', onKey, true); document.removeEventListener('visibilitychange', onVis);
     if(shot > saved) busy('Сохраняю снимки…');
     await queue; busy(null); ov.remove(); onDone(saved);

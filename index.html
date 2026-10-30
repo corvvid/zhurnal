@@ -367,6 +367,9 @@ body.at-home{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .cam-side{display:flex;gap:10px;justify-content:flex-end;align-items:center}
 .cam-btn{min-height:48px;min-width:48px;padding:0 16px;border-radius:24px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
 .cam-done{background:#fff;color:#000;border-color:#fff}
+.cam-ico{padding:0;display:inline-flex;align-items:center;justify-content:center}
+.cam-btn.on{background:#ffd23f;color:#000;border-color:#ffd23f}
+.cam-btn[hidden]{display:none}
 @media (max-width:520px){.cam-bar{grid-template-columns:minmax(0,1fr) auto auto;gap:10px;padding-left:12px;padding-right:12px}.cam-side{gap:8px}.cam-btn{padding:0 13px}}
 button.pic.add{font:inherit;font-weight:600;font-size:14.5px;color:var(--ink-2)}
 /* диалоги */
@@ -3011,11 +3014,33 @@ function cameraSeries(onShot, onDone){
     <div class="cam-bar">
       <div class="cam-thumbs" data-th></div>
       <button type="button" class="cam-shot" data-shot aria-label="Снять"></button>
-      <div class="cam-side"><button type="button" class="cam-btn" data-flip aria-label="Сменить камеру" title="Сменить камеру">⟲</button><button type="button" class="cam-btn cam-done" data-done>Готово</button></div>
+      <div class="cam-side"><button type="button" class="cam-btn cam-ico" data-torch hidden aria-label="Подсветка" aria-pressed="false" title="Подсветка"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M13.5 2 4.5 13.5h6L9.5 22l9-11.5h-6z"/></svg></button><button type="button" class="cam-btn" data-flip aria-label="Сменить камеру" title="Сменить камеру">⟲</button><button type="button" class="cam-btn cam-done" data-done>Готово</button></div>
     </div></div>`);
   document.body.append(ov);
   const v = $('video', ov), cc = $('[data-cc]', ov), th = $('[data-th]', ov), flash = $('.cam-flash', ov), pv = $('.cam-pv', ov), pvx = pv.getContext('2d');
   const stop = () => { if(stream) stream.getTracks().forEach(t => t.stop()); stream = null; };
+  // подсветка: светодиод камеры горит постоянно, пока открыта съёмка (настоящая вспышка из браузера недоступна)
+  const tb = $('[data-torch]', ov); let torchOn = false;
+  function drawTorch(){ tb.classList.toggle('on', torchOn); tb.setAttribute('aria-pressed', torchOn); tb.title = torchOn ? 'Выключить подсветку' : 'Включить подсветку'; }
+  function checkTorch(){
+    torchOn = false; drawTorch();
+    const tr = stream && stream.getVideoTracks()[0];
+    let caps = {}; try { caps = tr && tr.getCapabilities ? tr.getCapabilities() : {}; } catch(e) {}
+    const sup = (navigator.mediaDevices.getSupportedConstraints && navigator.mediaDevices.getSupportedConstraints()) || {};
+    tb.hidden = !(tr && facing === 'environment' && caps.torch !== false && (caps.torch || sup.torch));
+  }
+  async function setTorch(on){
+    const tr = stream && stream.getVideoTracks()[0]; if(!tr) return;
+    // прежние требования к разрешению сохраняются, иначе поток может перейти на низкое разрешение
+    let base = {}; try { base = tr.getConstraints ? {...tr.getConstraints()} : {}; } catch(e) {}
+    delete base.torch; delete base.advanced;
+    try {
+      try { await tr.applyConstraints({...base, torch: {exact: on}}); }
+      catch(e) { if(e && e.name === 'OverconstrainedError') throw e; await tr.applyConstraints({...base, advanced: [{torch: on}]}); }
+      torchOn = on; drawTorch();
+    } catch(e) { tb.hidden = true; torchOn = false; if(on) toast('Подсветки у этой камеры нет', true); }
+  }
+  tb.onclick = () => setTorch(!torchOn);
   v.muted = true; v.defaultMuted = true; v.playsInline = true;
   // Просмотр рисуется на холсте из видеопотока: на iPhone и iPad сам <video> с камерой в приложении с экрана «Домой» может оставаться чёрным
   let raf = 0, waitTap = false;
@@ -3037,7 +3062,7 @@ function cameraSeries(onShot, onDone){
     try {
       stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: facing}, width: {ideal: 1920}, height: {ideal: 1440}}});
       if(closed){ stop(); return; }
-      v.srcObject = stream; await playV();
+      v.srcObject = stream; await playV(); checkTorch();
       if(!raf){ fitPv(); paint(); }
     } catch(e) {
       close();
